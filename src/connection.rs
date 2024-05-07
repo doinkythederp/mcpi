@@ -313,17 +313,18 @@ impl Display for TileData {
     }
 }
 
-/// An entity type supported by the Raspberry Juice API extension. These types can be used with [`Command`] to spawn new entities,
+/// An entity type supported by the Raspberry Juice/Jam API extensions.
+/// These types can be used with [`Command`] to spawn new entities,
 /// remove ones of a certain type, get a list of entities of a certain type, and so on.
 ///
 /// See also: [Raspberry Juice Reference Implementation](https://github.com/zhuowei/RaspberryJuice/blob/e8ef1bcd5aa07a1851d25de847c02e0a171d8a20/src/main/resources/mcpi/api/python/modded/mcpi/entity.py#L24-L102)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
-pub struct RaspberryJuiceEntityType(pub i32);
+pub struct JavaEntityType(pub i32);
 
-impl RaspberryJuiceEntityType {
+impl JavaEntityType {
     /// Used by Raspberry Juice to signify "no filter" in a command that can be filtered by entity type.
-    pub(crate) const ANY: Self = Self(-1);
+    pub const ANY: i32 = -1;
     pub const EXPERIENCE_ORB: Self = Self(2);
     pub const AREA_EFFECT_CLOUD: Self = Self(3);
     pub const ELDER_GUARDIAN: Self = Self(4);
@@ -406,7 +407,7 @@ impl RaspberryJuiceEntityType {
     pub const ENDER_CRYSTAL: Self = Self(200);
 }
 
-impl Deref for RaspberryJuiceEntityType {
+impl Deref for JavaEntityType {
     type Target = i32;
 
     fn deref(&self) -> &Self::Target {
@@ -414,7 +415,7 @@ impl Deref for RaspberryJuiceEntityType {
     }
 }
 
-impl Display for RaspberryJuiceEntityType {
+impl Display for JavaEntityType {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         Display::fmt(&self.0, f)
     }
@@ -494,6 +495,9 @@ impl SheepColor {
 }
 
 /// An entity type supported by the MCPI Addons API extension.
+///
+/// This type is primarily used by the [`Command::CustomEntitySpawn`] API call
+/// while connected to a server with the MCPI Addons API extension.
 ///
 /// See also: [MCPI Addons Reference Implementation](https://github.com/Bigjango13/MCPI-Addons/blob/05027ab7277d51c0dcdd93b58d2ddb66dfea92df/mcpi_addons/entity.py#L56-L100)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -582,9 +586,173 @@ impl<'a> Display for MCPIExtrasParticle<'a> {
     }
 }
 
+/// A particle that can be spawned using the [`Command::WorldSpawnParticle`] API call
+/// while connected to a server with the Raspberry Jam API extension.
+#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct RaspberryJamParticle<'a>(pub ApiStr<'a>);
+
+impl RaspberryJamParticle<'_> {
+    pub const BARRIER: Self = Self(ApiStr("BARRIER"));
+    pub const BLOCK_CRACK: Self = Self(ApiStr("BLOCK_CRACK"));
+    pub const BLOCK_DUST: Self = Self(ApiStr("BLOCK_DUST"));
+    pub const CLOUD: Self = Self(ApiStr("CLOUD"));
+    pub const CRIT: Self = Self(ApiStr("CRIT"));
+    pub const CRIT_MAGIC: Self = Self(ApiStr("CRIT_MAGIC"));
+    pub const DRIP_LAVA: Self = Self(ApiStr("DRIP_LAVA"));
+    pub const DRIP_WATER: Self = Self(ApiStr("DRIP_WATER"));
+    pub const ENCHANTMENT_TABLE: Self = Self(ApiStr("ENCHANTMENT_TABLE"));
+    pub const EXPLOSION_HUGE: Self = Self(ApiStr("EXPLOSION_HUGE"));
+    pub const EXPLOSION_LARGE: Self = Self(ApiStr("EXPLOSION_LARGE"));
+    pub const EXPLOSION_NORMAL: Self = Self(ApiStr("EXPLOSION_NORMAL"));
+    pub const FIREWORKS_SPARK: Self = Self(ApiStr("FIREWORKS_SPARK"));
+    pub const FLAME: Self = Self(ApiStr("FLAME"));
+    pub const FOOTSTEP: Self = Self(ApiStr("FOOTSTEP"));
+    pub const HEART: Self = Self(ApiStr("HEART"));
+    pub const ITEM_CRACK: Self = Self(ApiStr("ITEM_CRACK"));
+    pub const ITEM_TAKE: Self = Self(ApiStr("ITEM_TAKE"));
+    pub const LAVA: Self = Self(ApiStr("LAVA"));
+    pub const MOB_APPEARANCE: Self = Self(ApiStr("MOB_APPEARANCE"));
+    pub const NOTE: Self = Self(ApiStr("NOTE"));
+    pub const PORTAL: Self = Self(ApiStr("PORTAL"));
+    pub const REDSTONE: Self = Self(ApiStr("REDSTONE"));
+    pub const SLIME: Self = Self(ApiStr("SLIME"));
+    pub const SMOKE_LARGE: Self = Self(ApiStr("SMOKE_LARGE"));
+    pub const SMOKE_NORMAL: Self = Self(ApiStr("SMOKE_NORMAL"));
+    pub const SNOW_SHOVEL: Self = Self(ApiStr("SNOW_SHOVEL"));
+    pub const SNOWBALL: Self = Self(ApiStr("SNOWBALL"));
+    pub const SPELL: Self = Self(ApiStr("SPELL"));
+    pub const SPELL_INSTANT: Self = Self(ApiStr("SPELL_INSTANT"));
+    pub const SPELL_MOB: Self = Self(ApiStr("SPELL_MOB"));
+    pub const SPELL_MOB_AMBIENT: Self = Self(ApiStr("SPELL_MOB_AMBIENT"));
+    pub const SPELL_WITCH: Self = Self(ApiStr("SPELL_WITCH"));
+    pub const SUSPENDED: Self = Self(ApiStr("SUSPENDED"));
+    pub const SUSPENDED_DEPTH: Self = Self(ApiStr("SUSPENDED_DEPTH"));
+    pub const TOWN_AURA: Self = Self(ApiStr("TOWN_AURA"));
+    pub const VILLAGER_ANGRY: Self = Self(ApiStr("VILLAGER_ANGRY"));
+    pub const VILLAGER_HAPPY: Self = Self(ApiStr("VILLAGER_HAPPY"));
+    pub const WATER_BUBBLE: Self = Self(ApiStr("WATER_BUBBLE"));
+    pub const WATER_DROP: Self = Self(ApiStr("WATER_DROP"));
+    pub const WATER_SPLASH: Self = Self(ApiStr("WATER_SPLASH"));
+    pub const WATER_WAKE: Self = Self(ApiStr("WATER_WAKE"));
+}
+
+impl<'a> Deref for RaspberryJamParticle<'a> {
+    type Target = ApiStr<'a>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<'a> Display for RaspberryJamParticle<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.0, f)
+    }
+}
+
+/// A dimension that can be used with the Raspberry Jam API extension.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Dimension(pub i32);
+
+impl Dimension {
+    pub const OVERWORLD: Self = Self(0);
+    pub const NETHER: Self = Self(-1);
+    pub const END: Self = Self(1);
+}
+
+impl Deref for Dimension {
+    type Target = i32;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Display for Dimension {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.0, f)
+    }
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct PlayerSettingKey<'a>(pub ApiStr<'a>);
+
+impl PlayerSettingKey<'_> {
+    pub const AUTOJUMP: Self = Self(ApiStr("autojump"));
+}
+
+impl<'a> Deref for PlayerSettingKey<'a> {
+    type Target = ApiStr<'a>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<'a> Display for PlayerSettingKey<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.0, f)
+    }
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct WorldSettingKey<'a>(pub ApiStr<'a>);
+
+impl WorldSettingKey<'_> {
+    pub const WORLD_IMMUTABLE: Self = Self(ApiStr("world_immutable"));
+    pub const NAME_TAGS: Self = Self(ApiStr("name_tags"));
+    /// Raspberry Jam extension.
+    pub const INCLUDE_NBT_WITH_DATA: Self = Self(ApiStr("include_nbt_with_data"));
+    /// Raspberry Jam extension.
+    pub const PAUSE_DRAWING: Self = Self(ApiStr("pause_drawing"));
+}
+
+impl<'a> Deref for WorldSettingKey<'a> {
+    type Target = ApiStr<'a>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<'a> Display for WorldSettingKey<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.0, f)
+    }
+}
+
+/// Raspberry Jam extension.
+#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct EventsSettingKey<'a>(pub ApiStr<'a>);
+
+impl WorldSettingKey<'_> {
+    pub const RESTRICT_TO_SWORD: Self = Self(ApiStr("restrict_to_sword"));
+    pub const DETECT_LEFT_CLICK: Self = Self(ApiStr("detect_left_click"));
+}
+
+impl<'a> Deref for EventsSettingKey<'a> {
+    type Target = ApiStr<'a>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<'a> Display for EventsSettingKey<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.0, f)
+    }
+}
+
 // MARK: Commands
 
 /// A command that can be sent to the game server to perform an action or query information.
+///
+/// Includes all commands supported by the vanilla Minecraft: Pi Edition game, as well as
+/// commands from the following plugins, mods, or API extensions:
+///
+/// - [Raspberry Juice](https://dev.bukkit.org/projects/raspberryjuice) plugin
+/// - [MCPI Addons](https://github.com/Bigjango13/MCPI-Addons) mod
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum Command<'a> {
@@ -596,6 +764,10 @@ pub enum Command<'a> {
         target: Option<i32>,
     },
     CameraModeSetNormal {
+        target: Option<i32>,
+    },
+    // TODO: Test whether this works on vanilla
+    CameraModeSetThirdPerson {
         target: Option<i32>,
     },
     CameraSetPos(Vector3<f64>),
@@ -612,13 +784,15 @@ pub enum Command<'a> {
     PlayerSetPos(Vector3<f64>),
     PlayerSetTile(Vector3<i16>),
     PlayerSetting {
-        key: ApiStr<'a>,
+        key: PlayerSettingKey<'a>,
         value: bool,
     },
     // World APIs
     WorldCheckpointRestore,
     WorldCheckpointSave,
     WorldGetBlock(Vector3<i16>),
+    /// Has Raspberry Jam mod extension to get block with NBT data. Requires a world setting to be set.
+    /// TODO: look into this
     WorldGetBlockWithData(Vector3<i16>),
     WorldGetHeight(Vector2<i16>),
     WorldGetPlayerIds,
@@ -626,29 +800,38 @@ pub enum Command<'a> {
         coords: Vector3<i16>,
         block: u8,
         data: Option<u8>,
+        /// Raspberry Jam mod extension to set block with NBT data.
+        ///
+        /// Set to [`None`] when using other servers.
+        json_nbt: Option<ApiStr<'a>>,
     },
     WorldSetting {
-        key: ApiStr<'a>,
+        key: WorldSettingKey<'a>,
         value: bool,
     },
     // Event APIs
     EventsClear,
     EventsBlockHits,
 
-    // # Raspberry Juice Extensions
+    // # Raspberry Juice (& Raspberry Jam) Extensions
     // https://dev.bukkit.org/projects/raspberryjuice
 
     // World APIs
     WorldGetBlocks(Vector3<i16>, Vector3<i16>),
-    WorldGetPlayerId(ApiStr<'a>),
-    WorldGetEntities(Option<RaspberryJuiceEntityType>),
+    /// When using the Raspberry Jam mod, this can be set to [`None`] to get the current player's ID.
+    WorldGetPlayerId(Option<ApiStr<'a>>),
+    WorldGetEntities(Option<JavaEntityType>),
     WorldRemoveEntity(i32),
-    WorldRemoveEntities(Option<RaspberryJuiceEntityType>),
+    WorldRemoveEntities(Option<JavaEntityType>),
     WorldSetBlocks {
         coords_1: Vector3<i16>,
         coords_2: Vector3<i16>,
         block: u8,
         data: Option<u8>,
+        /// Raspberry Jam mod extension to add NBT data to the blocks being set.
+        ///
+        /// Set to [`None`] when using other servers.
+        json_nbt: Option<ApiStr<'a>>,
     },
     WorldSetSign {
         coords: Vector3<i16>,
@@ -656,9 +839,9 @@ pub enum Command<'a> {
         data: TileData,
         lines: Vec<ApiStr<'a>>,
     },
-    WorldSpawnEntity {
+    RaspberryJuiceWorldSpawnEntity {
         coords: Vector3<f64>,
-        entity_type: RaspberryJuiceEntityType,
+        entity_type: JavaEntityType,
     },
     WorldGetEntityTypes,
 
@@ -677,12 +860,12 @@ pub enum Command<'a> {
     EntityGetEntities {
         target: i32,
         distance: i32,
-        entity_type: Option<RaspberryJuiceEntityType>,
+        entity_type: Option<JavaEntityType>,
     },
     EntityRemoveEntities {
         target: i32,
         distance: i32,
-        entity_type: Option<RaspberryJuiceEntityType>,
+        entity_type: Option<JavaEntityType>,
     },
 
     // Player APIs
@@ -700,11 +883,11 @@ pub enum Command<'a> {
     PlayerEventsProjectileHits,
     PlayerGetEntities {
         distance: i32,
-        entity_type: Option<RaspberryJuiceEntityType>,
+        entity_type: Option<JavaEntityType>,
     },
     PlayerRemoveEntities {
         distance: i32,
-        entity_type: Option<RaspberryJuiceEntityType>,
+        entity_type: Option<JavaEntityType>,
     },
 
     // Events APIs
@@ -791,6 +974,64 @@ pub enum Command<'a> {
 
     // Entity APIs
     EntityGetAllEntities,
+
+    // # Raspbery Jam mod
+    // https://github.com/arpruss/raspberryjammod
+
+    // World APIs
+    /// Has extension to get block with NBT data. Requires a world setting to be set.
+    WorldGetBlocksWithData {
+        coords_1: Vector3<i16>,
+        coords_2: Vector3<i16>,
+    },
+    WorldSpawnParticle {
+        particle: RaspberryJamParticle<'a>,
+        coords: Vector3<f64>,
+        direction: Vector3<f64>, // TODO: Unclear how to use this
+        speed: f64,
+        count: i32,
+    },
+
+    // Block APIs
+    BlockGetLightLevel {
+        block: Tile,
+    },
+    BlockSetLightLevel {
+        block: Tile,
+        level: f32,
+    },
+
+    // Entity APIs
+    EntitySetDimension {
+        entity_id: i32,
+        dimension: Dimension,
+    },
+    EntityGetNameAndUUID(i32),
+    RaspberryJamWorldSpawnEntity {
+        entity_type: JavaEntityType,
+        coords: Vector3<f64>,
+        json_nbt: Option<ApiStr<'a>>,
+    },
+
+    // Player APIs
+    PlayerSetDimension {
+        dimension: Dimension,
+    },
+    PlayerGetNameAndUUID,
+
+    // Camera APIs
+    CameraGetEntityId,
+    CameraSetFollow {
+        target: Option<i32>,
+    },
+    CameraSetNormal {
+        target: Option<i32>,
+    },
+    CameraSetThirdPerson {
+        target: Option<i32>,
+    },
+    CameraSetDebug,
+    CameraSetDistance(f32),
 }
 
 impl Command<'_> {
@@ -800,6 +1041,7 @@ impl Command<'_> {
             Self::CameraModeSetFixed
             | Self::CameraModeSetFollow { .. }
             | Self::CameraModeSetNormal { .. }
+            | Self::CameraModeSetThirdPerson { .. }
             | Self::CameraSetPos(_)
             | Self::ChatPost(_)
             | Self::EntitySetPos(_, _)
@@ -839,7 +1081,16 @@ impl Command<'_> {
             | Self::CustomPlayerCloseGUI
             | Self::CustomEntitySetAge { .. }
             | Self::CustomEntitySetSheepColor { .. }
-            | Self::PlayerSetRotation(..) => false,
+            | Self::PlayerSetRotation(..)
+            | Self::WorldSpawnParticle { .. }
+            | Self::BlockSetLightLevel { .. }
+            | Self::EntitySetDimension { .. }
+            | Self::PlayerSetDimension { .. }
+            | Self::CameraSetFollow { .. }
+            | Self::CameraSetNormal { .. }
+            | Self::CameraSetThirdPerson { .. }
+            | Self::CameraSetDebug
+            | Self::CameraSetDistance(..) => false,
 
             Self::EntityGetPos(_)
             | Self::EntityGetTile(_)
@@ -850,7 +1101,8 @@ impl Command<'_> {
             | Self::WorldGetBlockWithData(_)
             | Self::WorldGetHeight(_)
             | Self::WorldGetPlayerIds
-            | Self::WorldSpawnEntity { .. }
+            | Self::RaspberryJuiceWorldSpawnEntity { .. }
+            | Self::RaspberryJamWorldSpawnEntity { .. }
             | Self::WorldGetEntities(..)
             | Self::WorldGetPlayerId(..)
             | Self::WorldRemoveEntities(..)
@@ -888,7 +1140,12 @@ impl Command<'_> {
             | Self::EventsChatSize
             | Self::CustomRebornVersion
             | Self::CustomRebornFeature(..)
-            | Self::EntityGetAllEntities => true,
+            | Self::EntityGetAllEntities
+            | Self::WorldGetBlocksWithData { .. }
+            | Self::BlockGetLightLevel { .. }
+            | Self::EntityGetNameAndUUID(..)
+            | Self::PlayerGetNameAndUUID
+            | Self::CameraGetEntityId => true,
         }
     }
 }
@@ -920,6 +1177,9 @@ impl<'a> Display for Command<'a> {
             Self::CameraSetPos(pos) => {
                 writeln!(f, "camera.setPos({})", vector(pos))
             }
+            Self::CameraModeSetThirdPerson { target } => {
+                writeln!(f, "camera.mode.setThirdPerson({})", optional(target, false))
+            }
             Self::ChatPost(message) => {
                 writeln!(f, "chat.post({message})")
             }
@@ -948,7 +1208,7 @@ impl<'a> Display for Command<'a> {
                 writeln!(f, "player.setTile({})", vector(tile))
             }
             Self::PlayerSetting { key, value } => {
-                writeln!(f, "player.setting({key},{value})")
+                writeln!(f, "player.setting({key},{})", *value as i32)
             }
             Self::WorldCheckpointRestore => {
                 writeln!(f, "world.checkpoint.restore()")
@@ -963,7 +1223,7 @@ impl<'a> Display for Command<'a> {
                 writeln!(f, "world.getBlocks({},{})", vector(pos_1), vector(pos_2))
             }
             Self::WorldGetPlayerId(name) => {
-                writeln!(f, "world.getPlayerId({name})")
+                writeln!(f, "world.getPlayerId({})", optional(name, false))
             }
             Self::WorldGetEntities(entity_type) => {
                 writeln!(f, "world.getEntities({})", optional(entity_type, false))
@@ -987,12 +1247,18 @@ impl<'a> Display for Command<'a> {
                 coords,
                 block,
                 data,
+                json_nbt,
             } => {
                 writeln!(
                     f,
-                    "world.setBlock({},{block}{})",
+                    "world.setBlock({},{block}{}{})",
                     vector(coords),
-                    optional(data, true)
+                    if json_nbt.is_some() {
+                        format!(",{}", data.unwrap_or(0))
+                    } else {
+                        optional(data, true)
+                    },
+                    optional(json_nbt, true)
                 )
             }
             Self::WorldSetBlocks {
@@ -1000,17 +1266,23 @@ impl<'a> Display for Command<'a> {
                 coords_2,
                 block,
                 data,
+                json_nbt,
             } => {
                 writeln!(
                     f,
-                    "world.setBlocks({},{},{block}{})",
+                    "world.setBlocks({},{},{block}{}{})",
                     vector(coords_1),
                     vector(coords_2),
-                    optional(data, true)
+                    if json_nbt.is_some() {
+                        format!(",{}", data.unwrap_or(0))
+                    } else {
+                        optional(data, true)
+                    },
+                    optional(json_nbt, true)
                 )
             }
             Self::WorldSetting { key, value } => {
-                writeln!(f, "world.setting({key},{value})")
+                writeln!(f, "world.setting({key},{})", *value as i32)
             }
             Self::WorldSetSign {
                 coords,
@@ -1029,7 +1301,7 @@ impl<'a> Display for Command<'a> {
                         .join(",")
                 )
             }
-            Self::WorldSpawnEntity {
+            Self::RaspberryJuiceWorldSpawnEntity {
                 coords,
                 entity_type,
             } => {
@@ -1280,6 +1552,81 @@ impl<'a> Display for Command<'a> {
             }
             Self::EntityGetAllEntities => {
                 writeln!(f, "entity.getAllEntities()")
+            }
+            Self::WorldGetBlocksWithData { coords_1, coords_2 } => {
+                writeln!(
+                    f,
+                    "world.getBlocksWithData({},{})",
+                    vector(coords_1),
+                    vector(coords_2)
+                )
+            }
+            Self::BlockGetLightLevel { block } => {
+                writeln!(f, "block.getLightLevel({block})")
+            }
+            Self::BlockSetLightLevel { block, level } => {
+                writeln!(f, "block.setLightLevel({block},{level})")
+            }
+            Self::EntitySetDimension {
+                entity_id,
+                dimension,
+            } => {
+                writeln!(f, "entity.setDimension({entity_id},{dimension})")
+            }
+            Self::EntityGetNameAndUUID(entity_id) => {
+                writeln!(f, "entity.getNameAndUUID({entity_id})")
+            }
+            Self::RaspberryJamWorldSpawnEntity {
+                entity_type,
+                coords,
+                json_nbt,
+            } => {
+                writeln!(
+                    f,
+                    "world.spawnEntity({entity_type},{}{})",
+                    vector(coords),
+                    optional(json_nbt, true)
+                )
+            }
+            Self::PlayerSetDimension { dimension } => {
+                writeln!(f, "player.setDimension({dimension})")
+            }
+            Self::PlayerGetNameAndUUID => {
+                writeln!(f, "player.getNameAndUUID()")
+            }
+            Self::CameraGetEntityId => {
+                writeln!(f, "camera.getEntityId()")
+            }
+            Self::CameraSetFollow { target } => {
+                writeln!(f, "camera.setFollow({})", optional(target, false))
+            }
+            Self::CameraSetNormal { target } => {
+                writeln!(f, "camera.setNormal({})", optional(target, false))
+            }
+            Self::CameraSetThirdPerson { target } => {
+                writeln!(f, "camera.setThirdPerson({})", optional(target, false))
+            }
+            Self::CameraSetDebug => {
+                writeln!(f, "camera.setDebug()")
+            }
+            Self::CameraSetDistance(distance) => {
+                writeln!(f, "camera.setDistance({distance})")
+            }
+            Self::WorldSpawnParticle {
+                particle,
+                coords,
+                direction,
+                speed,
+                count,
+            } => {
+                writeln!(
+                    f,
+                    "world.spawnParticle({particle},{},{},{},{})",
+                    vector(coords),
+                    vector(direction),
+                    speed,
+                    count
+                )
             }
         }
     }
@@ -1564,6 +1911,7 @@ mod tests {
             coords: Vector3::default(),
             block: 1,
             data: Some(2),
+            json_nbt: None,
         };
         assert_eq!(command.to_string(), "world.setBlock(0,0,0,1,2)\n");
     }
@@ -1574,8 +1922,54 @@ mod tests {
             coords: Vector3::default(),
             block: 1,
             data: None,
+            json_nbt: None,
         };
         assert_eq!(command.to_string(), "world.setBlock(0,0,0,1)\n");
+    }
+
+    #[test]
+    fn command_set_block_includes_data_when_json_nbt_some() {
+        let command = Command::WorldSetBlock {
+            coords: Vector3::new(1, 2, 3),
+            block: 4,
+            data: None,
+            json_nbt: Some(ApiStr::new("{\"key\": \"value\"}").unwrap()),
+        };
+        assert_eq!(
+            command.to_string(),
+            "world.setBlock(1,2,3,4,0,{\"key\": \"value\"})\n"
+        );
+    }
+
+    #[test]
+    fn command_set_blocks_includes_data_when_json_nbt_some() {
+        let command = Command::WorldSetBlocks {
+            coords_1: Vector3::new(1, 2, 3),
+            coords_2: Vector3::new(4, 5, 6),
+            block: 7,
+            data: None,
+            json_nbt: Some(ApiStr::new("{\"key\": \"value\"}").unwrap()),
+        };
+        assert_eq!(
+            command.to_string(),
+            "world.setBlocks(1,2,3,4,5,6,7,0,{\"key\": \"value\"})\n"
+        );
+    }
+
+    #[test]
+    fn raspberry_jam_camera_apis_have_no_mode() {
+        let command = Command::CameraModeSetNormal { target: None };
+        assert_eq!(command.to_string(), "camera.mode.setNormal()\n");
+        let command = Command::CameraSetNormal { target: None };
+        assert_eq!(command.to_string(), "camera.setNormal()\n");
+        let command = Command::CameraModeSetThirdPerson { target: None };
+        assert_eq!(command.to_string(), "camera.mode.setThirdPerson()\n");
+        let command = Command::CameraSetThirdPerson { target: None };
+        assert_eq!(command.to_string(), "camera.setThirdPerson()\n");
+        let command = Command::CameraModeSetFollow { target: None };
+        assert_eq!(command.to_string(), "camera.mode.setFollow()\n");
+        let command = Command::CameraSetFollow { target: None };
+        assert_eq!(command.to_string(), "camera.setFollow()\n");
     }
 
     #[test]
