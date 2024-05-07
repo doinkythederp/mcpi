@@ -1,0 +1,16 @@
+[package]
+name = "mcpi"
+version = "0.1.0"
+edition = "2021"
+authors = ["doinkythederp <doinkythederp@icloud.com>"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bytes = "1.6.0"
+nalgebra = "0.32.5"
+snafu = "0.8.2"
+tokio = { version = "1.37.0", features = ["net", "sync", "io-util", "macros"] }
+
+[dev-dependencies]
+tokio = { version = "1.37.0", features = ["full"] }
