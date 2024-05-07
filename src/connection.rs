@@ -1718,6 +1718,7 @@ impl<'a> ApiStr<'a> {
 
 // MARK: Connection
 
+/// An error that can occur when interacting with a Minecraft: Pi Edition game server.
 #[derive(Debug, Snafu)]
 pub enum ConnectionError {
     /// An IO error occurred and the command could not be sent.
@@ -1730,9 +1731,7 @@ pub enum ConnectionError {
     ///
     /// This usually means that the server could not parse the command.
     #[snafu(display("The server responded with a 'Fail' message."))]
-    GenericFail {
-        backtrace: Backtrace,
-    },
+    GenericFail { backtrace: Backtrace },
     /// The server did not respond in time.
     ///
     /// This error will only be triggered for commands that require a response.
@@ -1750,9 +1749,8 @@ pub enum ConnectionError {
         source: std::string::FromUtf8Error,
         backtrace: Backtrace,
     },
-    ConnectionClosed {
-        backtrace: Backtrace,
-    },
+    /// The server unexpectedly closed the connection.
+    ConnectionClosed { backtrace: Backtrace },
 }
 
 /// Options that can be set to change the behavior of the connection to the game.
