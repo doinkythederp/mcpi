@@ -1773,7 +1773,7 @@ impl Default for ConnectOptions {
     }
 }
 
-/// A connection to game server using with the Minecraft: Pi Edition API protocol.
+/// A connection to a game server using the Minecraft: Pi Edition API protocol.
 pub struct ServerConnection {
     socket: BufWriter<TcpStream>,
     buffer: String,
