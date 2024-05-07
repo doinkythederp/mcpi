@@ -472,6 +472,10 @@ impl<'a> Deref for MCPIExtrasKey<'a> {
     }
 }
 
+/// The color of a sheep.
+///
+/// This can be when creating a new Sheep entity with [`MCPIExtrasEntityType`].or when
+/// changing a sheep's color using [`Command::CustomEntitySetSheepColor`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SheepColor(pub i32);
 
@@ -494,10 +498,28 @@ impl SheepColor {
     pub const BLACK: Self = Self(15);
 }
 
+impl Deref for SheepColor {
+    type Target = i32;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Display for SheepColor {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.0, f)
+    }
+}
+
 /// An entity type supported by the MCPI Addons API extension.
 ///
 /// This type is primarily used by the [`Command::CustomEntitySpawn`] API call
 /// while connected to a server with the MCPI Addons API extension.
+///
+/// The struct itself is an entity type and an entity data value. Entities which do not have a data value
+/// are available as associated constants, and ones that do have a data value can be created using one
+/// of the provided constructors.
 ///
 /// See also: [MCPI Addons Reference Implementation](https://github.com/Bigjango13/MCPI-Addons/blob/05027ab7277d51c0dcdd93b58d2ddb66dfea92df/mcpi_addons/entity.py#L56-L100)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -524,7 +546,7 @@ impl MCPIExtrasEntityType {
     pub const EGG: Self = Self(82, 0);
     pub const PAINTING: Self = Self(83, 0);
 
-    /// Create a new sheep entity type with the given color.
+    /// Creates a new sheep entity type with the given color.
     pub const fn new_sheep(color: SheepColor) -> Self {
         Self(Self::SHEEP, color.0)
     }
@@ -650,7 +672,7 @@ impl<'a> Display for RaspberryJamParticle<'a> {
     }
 }
 
-/// A dimension that can be used with the Raspberry Jam API extension.
+/// A world dimension that can be used with the Raspberry Jam API extension.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Dimension(pub i32);
 
@@ -674,10 +696,12 @@ impl Display for Dimension {
     }
 }
 
+/// A player-related setting that can be updated using the API.
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PlayerSettingKey<'a>(pub ApiStr<'a>);
 
 impl PlayerSettingKey<'_> {
+    /// Controls whether the player will automatically jump when walking into a block.
     pub const AUTOJUMP: Self = Self(ApiStr("autojump"));
 }
 
@@ -695,15 +719,18 @@ impl<'a> Display for PlayerSettingKey<'a> {
     }
 }
 
+/// A world-related setting that can be updated using the API.
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct WorldSettingKey<'a>(pub ApiStr<'a>);
 
 impl WorldSettingKey<'_> {
+    /// Controls whether players can edit the world (such as by placing or destroying blocks).
     pub const WORLD_IMMUTABLE: Self = Self(ApiStr("world_immutable"));
+    /// Controls whether player name tags will be shown.
     pub const NAME_TAGS: Self = Self(ApiStr("name_tags"));
-    /// Raspberry Jam extension.
+    /// Raspberry Jam extension: controls whether NBT data will be included when fetching block data.
     pub const INCLUDE_NBT_WITH_DATA: Self = Self(ApiStr("include_nbt_with_data"));
-    /// Raspberry Jam extension.
+    /// Raspberry Jam extension: while enabled, block updates requested over the API will be queued but not executed.
     pub const PAUSE_DRAWING: Self = Self(ApiStr("pause_drawing"));
 }
 
@@ -721,12 +748,14 @@ impl<'a> Display for WorldSettingKey<'a> {
     }
 }
 
-/// Raspberry Jam extension.
+/// An event-related setting that can be updated using the API. (Raspberry Jam extension)
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct EventsSettingKey<'a>(pub ApiStr<'a>);
 
 impl WorldSettingKey<'_> {
+    /// Raspberry Jam extension: controls whether events will only be sent from players holding a sword.
     pub const RESTRICT_TO_SWORD: Self = Self(ApiStr("restrict_to_sword"));
+    /// Raspberry Jam extension: controls whether events will be sent that were triggered by left-clicks.
     pub const DETECT_LEFT_CLICK: Self = Self(ApiStr("detect_left_click"));
 }
 
@@ -753,6 +782,10 @@ impl<'a> Display for EventsSettingKey<'a> {
 ///
 /// - [Raspberry Juice](https://dev.bukkit.org/projects/raspberryjuice) plugin
 /// - [MCPI Addons](https://github.com/Bigjango13/MCPI-Addons) mod
+/// - [Raspberry Jam](https://github.com/arpruss/raspberryjammod)
+///
+/// Enum members are generally named after the API method they correspond to, with the exception of
+/// a few extension commands that have conflicting names.
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum Command<'a> {
@@ -962,7 +995,7 @@ pub enum Command<'a> {
     },
     CustomEntitySetSheepColor {
         entity_id: i32,
-        color: i32,
+        color: SheepColor,
     },
 
     // Chat Events APIs
@@ -1722,9 +1755,11 @@ pub enum ConnectionError {
     },
 }
 
+/// Options that can be set to change the behavior of the connection to the game.
 pub struct ConnectOptions {
     /// The time (in millisecods) to wait for a response before giving up.
-    /// Setting this to a higher number means slower performance, but less chance of erroring.
+    /// Setting this to a higher value may slow performance,
+    /// but has a smaller chance of causing a timeout error.
     ///
     /// Defaults to 1 second.
     pub response_timeout: Duration,
@@ -1738,6 +1773,7 @@ impl Default for ConnectOptions {
     }
 }
 
+/// A connection to game server using with the Minecraft: Pi Edition API protocol.
 pub struct ServerConnection {
     socket: BufWriter<TcpStream>,
     buffer: String,
