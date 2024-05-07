@@ -313,7 +313,8 @@ impl Display for TileData {
     }
 }
 
-/// An entity type supported by the Raspberry Juice API extension.
+/// An entity type supported by the Raspberry Juice API extension. These types can be used with [`Command`] to spawn new entities,
+/// remove ones of a certain type, get a list of entities of a certain type, and so on.
 ///
 /// See also: [Raspberry Juice Reference Implementation](https://github.com/zhuowei/RaspberryJuice/blob/e8ef1bcd5aa07a1851d25de847c02e0a171d8a20/src/main/resources/mcpi/api/python/modded/mcpi/entity.py#L24-L102)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -321,6 +322,7 @@ impl Display for TileData {
 pub struct RaspberryJuiceEntityType(pub i32);
 
 impl RaspberryJuiceEntityType {
+    /// Used by Raspberry Juice to signify "no filter" in a command that can be filtered by entity type.
     pub(crate) const ANY: Self = Self(-1);
     pub const EXPERIENCE_ORB: Self = Self(2);
     pub const AREA_EFFECT_CLOUD: Self = Self(3);
@@ -518,26 +520,32 @@ impl MCPIExtrasEntityType {
     pub const EGG: Self = Self(82, 0);
     pub const PAINTING: Self = Self(83, 0);
 
+    /// Create a new sheep entity type with the given color.
     pub const fn new_sheep(color: SheepColor) -> Self {
         Self(Self::SHEEP, color.0)
     }
 
+    /// Creates a new dropped item entity type of the given tile.
     pub const fn new_item(tile: Tile) -> Self {
         Self(Self::ITEM, tile.0 as _)
     }
 
+    /// Creates a new falling tile entity type of the given tile.
     pub const fn new_falling_tile(tile: Tile) -> Self {
         Self(Self::FALLING_TILE, tile.0 as _)
     }
 
+    /// Creates a new arrow entity that can optionally be a critical hit.
     pub const fn new_arrow(critical: bool) -> Self {
         Self(Self::ARROW, critical as _)
     }
 
+    /// Creates a new primed TNT entity that will explode after the given number of ticks.
     pub const fn new_tnt_const(ticks: i32) -> Self {
         Self(Self::TNT, ticks) // TODO: what is this acually measured in? i've never checked
     }
 
+    /// Creates a new primed TNT entity that will explode after the given duration.
     pub fn new_tnt(fuse: Duration) -> Self {
         Self::new_tnt_const((fuse.as_secs_f64() / 0.05) as i32)
     }
