@@ -8,6 +8,7 @@
 //!
 
 use std::fmt::{self, Display, Formatter};
+use std::future::Future;
 use std::ops::Deref;
 use std::time::Duration;
 
@@ -15,6 +16,8 @@ use nalgebra::{SVector, Vector2, Vector3};
 use snafu::{Backtrace, Snafu};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufWriter};
 use tokio::net::{TcpStream, ToSocketAddrs};
+use tokio::time::error::Elapsed;
+use tokio::time::timeout;
 
 // MARK: Enums
 
@@ -838,6 +841,16 @@ pub enum Command<'a> {
         /// Set to [`None`] when using other servers.
         json_nbt: Option<ApiStr<'a>>,
     },
+    WorldSetBlocks {
+        coords_1: Vector3<i16>,
+        coords_2: Vector3<i16>,
+        block: u8,
+        data: Option<u8>,
+        /// Raspberry Jam mod extension to add NBT data to the blocks being set.
+        ///
+        /// Set to [`None`] when using other servers.
+        json_nbt: Option<ApiStr<'a>>,
+    },
     WorldSetting {
         key: WorldSettingKey<'a>,
         value: bool,
@@ -856,16 +869,6 @@ pub enum Command<'a> {
     WorldGetEntities(Option<JavaEntityType>),
     WorldRemoveEntity(i32),
     WorldRemoveEntities(Option<JavaEntityType>),
-    WorldSetBlocks {
-        coords_1: Vector3<i16>,
-        coords_2: Vector3<i16>,
-        block: u8,
-        data: Option<u8>,
-        /// Raspberry Jam mod extension to add NBT data to the blocks being set.
-        ///
-        /// Set to [`None`] when using other servers.
-        json_nbt: Option<ApiStr<'a>>,
-    },
     WorldSetSign {
         coords: Vector3<i16>,
         block: Tile,
@@ -1751,30 +1754,69 @@ pub enum ConnectionError {
     },
     /// The server unexpectedly closed the connection.
     ConnectionClosed { backtrace: Backtrace },
+    /// The server did not respond in time.
+    #[snafu(
+        display("The server did not respond in time: {source}"),
+        context(false)
+    )]
+    Timeout {
+        source: Elapsed,
+        backtrace: Backtrace,
+    },
 }
 
 /// Options that can be set to change the behavior of the connection to the game.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ConnectOptions {
-    /// The time (in millisecods) to wait for a response before giving up.
+    /// The amount of time to wait for a response from the server before giving up.
     /// Setting this to a higher value may slow performance,
     /// but has a smaller chance of causing a timeout error.
     ///
     /// Defaults to 1 second.
-    pub response_timeout: Duration,
+    pub response_timeout: Option<Duration>,
+    /// Whether to always wait for a response from the server.
+    ///
+    /// Because the server (under normal circumstances) does not acknowledge commands that do not require a
+    /// response, the default behavior is to not check for a response for those commands. However,
+    /// in an error scenario, the server may respond with a 'Fail' message, which would be missed if
+    /// this setting is disabled.
+    ///
+    /// Enabling this setting will significantly degrade performance because commands that do not require a response
+    /// will need to wait [`response_timeout`] seconds before continuing.
+    pub always_wait_for_response: bool,
 }
 
 impl Default for ConnectOptions {
     fn default() -> Self {
         Self {
-            response_timeout: Duration::from_secs(1),
+            response_timeout: Some(Duration::from_secs(1)),
+            always_wait_for_response: false,
         }
     }
 }
 
+/// A communication interface with a Minecraft: Pi Edition game server.
+pub trait Protocol<E = ConnectionError> {
+    /// Updates the connection options.
+    fn set_options(&mut self, options: ConnectOptions);
+    /// Sends a command to the server and returns its response.
+    ///
+    /// If the command does not expect a response (as determined by [`Command::has_response`])
+    /// and the [`ConnectOptions::always_wait_for_response`] option is not enabled,
+    /// an empty string is returned without waiting for the server to respond.
+    ///
+    /// The operation will time out after the duration specified in the [`ConnectOptions::response_timeout`] option.
+    ///
+    /// Server responses are returned without processing or parsing.
+    fn send(&mut self, data: Command<'_>) -> impl Future<Output = Result<String, E>> + Send;
+}
+
 /// A connection to a game server using the Minecraft: Pi Edition API protocol.
+#[derive(Debug)]
 pub struct ServerConnection {
     socket: BufWriter<TcpStream>,
     buffer: String,
+    options: ConnectOptions,
 }
 
 impl From<BufWriter<TcpStream>> for ServerConnection {
@@ -1782,30 +1824,29 @@ impl From<BufWriter<TcpStream>> for ServerConnection {
         Self {
             socket: value,
             buffer: String::new(),
+            options: ConnectOptions::default(),
         }
     }
 }
 
 impl ServerConnection {
     /// Connects to the Minecraft: Pi Edition server at the given address.
-    pub async fn new(addr: impl ToSocketAddrs) -> std::io::Result<Self> {
+    pub async fn new(addr: impl ToSocketAddrs, options: ConnectOptions) -> std::io::Result<Self> {
         let socket = TcpStream::connect(addr).await?;
         Ok(Self {
             socket: BufWriter::new(socket),
             buffer: String::new(),
+            options,
         })
     }
 
-    /// Sends a command to the server and returns its response.
-    pub async fn send(&mut self, data: Command<'_>) -> Result<String, ConnectionError> {
-        self.socket.write_all(data.to_string().as_bytes()).await?;
-        self.socket.flush().await?;
-
-        if !data.has_response() {
-            return Ok(String::new());
+    /// Creates a [`ServerConnection`] from an existing TCP steam.
+    pub fn from_stream(socket: TcpStream, options: ConnectOptions) -> Self {
+        Self {
+            socket: BufWriter::new(socket),
+            buffer: String::new(),
+            options,
         }
-
-        self.read_frame().await
     }
 
     /// Sends a command to the server without waiting for a response.
@@ -1843,6 +1884,29 @@ impl ServerConnection {
         let idx = self.buffer.find('\n')?;
         let frame = self.buffer.drain(..idx + 1).collect();
         Some(frame)
+    }
+}
+
+impl Protocol for ServerConnection {
+    fn set_options(&mut self, options: ConnectOptions) {
+        self.options = options;
+    }
+
+    async fn send(&mut self, data: Command<'_>) -> Result<String, ConnectionError> {
+        self.socket.write_all(data.to_string().as_bytes()).await?;
+        self.socket.flush().await?;
+
+        let has_response = data.has_response();
+        if has_response || self.options.always_wait_for_response {
+            if let Some(response_timeout) = self.options.response_timeout {
+                timeout(response_timeout, self.read_frame()).await?
+            } else {
+                assert!(has_response, "Using the `always_wait_for_response` setting without a `response_timeout` for a command that does not expect a response may cause an infinite hang.");
+                self.read_frame().await
+            }
+        } else {
+            Ok(String::new())
+        }
     }
 }
 
