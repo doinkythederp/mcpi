@@ -13,11 +13,13 @@ use std::ops::Deref;
 use std::time::Duration;
 
 use nalgebra::{SVector, Vector2, Vector3};
-use snafu::{Backtrace, Snafu};
+use snafu::{Backtrace, OptionExt, Snafu};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufWriter};
 use tokio::net::{TcpStream, ToSocketAddrs};
 use tokio::time::error::Elapsed;
 use tokio::time::timeout;
+
+use crate::util::{cp437_to_string, str_to_cp437, str_to_cp437_lossy};
 
 // MARK: Enums
 
@@ -808,7 +810,7 @@ pub enum Command<'a> {
     },
     CameraSetPos(Vector3<f64>),
     // Chat APIs
-    ChatPost(ApiStr<'a>),
+    ChatPost(&'a ChatString),
     // Entity APIs
     EntityGetPos(i32),
     EntityGetTile(i32),
@@ -1671,7 +1673,7 @@ impl<'a> Display for Command<'a> {
 /// An error that occurs when an ApiString is created that contains a LF (line feed) character.
 #[derive(Debug, Snafu)]
 #[snafu(display("String must not contain LF characters."))]
-pub struct ApiStrError;
+pub struct NewlineStrError;
 
 /// A string that does not contain the LF (line feed) character.
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -1700,9 +1702,9 @@ impl<'a> ApiStr<'a> {
     /// # Errors
     ///
     /// Returns an error if the string contains a LF (line feed) character.
-    pub fn new(inner: &'a str) -> Result<Self, ApiStrError> {
+    pub fn new(inner: &'a str) -> Result<Self, NewlineStrError> {
         if inner.contains('\n') {
-            ApiStrSnafu.fail()
+            NewlineStrSnafu.fail()
         } else {
             Ok(Self(inner))
         }
@@ -1716,6 +1718,79 @@ impl<'a> ApiStr<'a> {
     #[must_use]
     pub unsafe fn new_unchecked(inner: &'a str) -> Self {
         Self(inner)
+    }
+}
+
+impl<'a> TryFrom<&'a str> for ApiStr<'a> {
+    type Error = NewlineStrError;
+
+    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+#[derive(Debug, Snafu)]
+pub enum ChatStringError {
+    #[snafu(display("{source}"), context(false))]
+    Newline {
+        source: NewlineStrError,
+    },
+    CP437,
+}
+
+/// A CP437 string that does not contain the LF (line feed) character.
+#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(transparent)]
+pub struct ChatString(Vec<u8>);
+
+impl AsRef<[u8]> for ChatString {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl Display for ChatString {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let string = std::str::from_utf8(&self.0).unwrap();
+        write!(f, "{string}")
+    }
+}
+
+impl ChatString {
+    /// Creates a new ApiString from the given string.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the string contains a LF (line feed) character.
+    pub fn from_str(inner: &str) -> Result<Self, ChatStringError> {
+        if inner.contains('\n') {
+            Err(NewlineStrSnafu.build().into())
+        } else {
+            let cp437 = str_to_cp437(inner).context(CP437Snafu)?;
+            Ok(Self(cp437))
+        }
+    }
+    /// Creates a new ApiString from the given string.
+    ///
+    /// Invalid characters are replaced with the "?" character.
+    #[must_use]
+    pub fn from_str_lossy(inner: &str) -> Self {
+        let cp437 = str_to_cp437_lossy(inner);
+        Self(cp437)
+    }
+
+    /// Creates a new ApiString from the given bytes.
+    ///
+    /// # Safety
+    ///
+    /// The string must not be CP437-encoded and not contain LF (line feed) characters.
+    #[must_use]
+    pub unsafe fn from_vec_unchecked(inner: Vec<u8>) -> Self {
+        Self(inner)
+    }
+
+    pub fn to_utf8(&self) -> String {
+        cp437_to_string(&self.0)
     }
 }
 
@@ -1932,23 +2007,18 @@ mod tests {
     }
 
     #[test]
-    fn api_str_and_chat_allow_control_characters() {
-        let command = Command::ChatPost(
-            ApiStr::new(
-                "CRLF line endings, common on Windows, are prefixed with the \r character.",
-            )
-            .unwrap(),
-        );
-        assert_eq!(
-            command.to_string(),
-            "chat.post(CRLF line endings, common on Windows, are prefixed with the \r character.)\n"
-        );
+    fn api_str_and_chat_string_allow_special_characters() {
+        let string = ChatString::from_str_lossy("I am so happy ♥");
+        let command = Command::ChatPost(&string);
+        assert_eq!(command.to_string(), "chat.post(I am so happy \u{003})\n");
+        let string = ApiStr::new("I am so happy ♥").unwrap();
+        assert_eq!(string.to_string(), "I am so happy ♥");
     }
 
     #[test]
     fn chat_post_formatting() {
-        let command =
-            Command::ChatPost(ApiStr::new("Hello world. This is a \"quote.\" )").unwrap());
+        let string = ChatString::from_str_lossy("Hello world. This is a \"quote.\" )");
+        let command = Command::ChatPost(&string);
         assert_eq!(
             command.to_string(),
             "chat.post(Hello world. This is a \"quote.\" ))\n"
