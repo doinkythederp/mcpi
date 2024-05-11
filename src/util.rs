@@ -51,8 +51,30 @@ pub fn str_to_cp437(s: &str) -> Option<Vec<u8>> {
 
 pub fn str_to_cp437_lossy(s: &str) -> Vec<u8> {
     let map = get_char_to_cp437();
-    const REPLACEMENT: u8 = '?' as u8; // utf-8 codepoint same as cp437
+    const REPLACEMENT: u8 = b'?'; // utf-8 codepoint same as cp437
     s.chars()
         .map(|c| map.get(&c).cloned().unwrap_or(REPLACEMENT))
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_cp437_to_string() {
+        assert_eq!(cp437_to_string(&[0, 1, 2, 3]), "\0☺☻♥");
+    }
+
+    #[test]
+    fn test_str_to_cp437() {
+        assert_eq!(str_to_cp437("☺☻♥♦"), Some(vec![1, 2, 3, 4]));
+        assert_eq!(str_to_cp437("☺\r"), None);
+    }
+
+    #[test]
+    fn test_str_to_cp437_lossy() {
+        assert_eq!(str_to_cp437_lossy("☺☻♥♦"), vec![1, 2, 3, 4]);
+        assert_eq!(str_to_cp437_lossy("☺☻♥♦\r"), vec![1, 2, 3, 4, b'?']);
+    }
 }

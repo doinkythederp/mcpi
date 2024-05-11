@@ -64,12 +64,6 @@ impl World {
     }
 }
 
-// struct SendRequest {
-//     wait_for_response: bool,
-//     data: Vec<u8>,
-//     result: oneshot::Sender<Result<Vec<u8>, ConnectionError>>,
-// }
-
 // #[cfg(test)]
 // mod tests {
 //     use super::*;

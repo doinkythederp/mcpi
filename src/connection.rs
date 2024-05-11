@@ -10,6 +10,7 @@
 use std::fmt::{self, Display, Formatter};
 use std::future::Future;
 use std::ops::Deref;
+use std::str::FromStr;
 use std::time::Duration;
 
 use nalgebra::{SVector, Vector2, Vector3};
@@ -1756,20 +1757,25 @@ impl Display for ChatString {
     }
 }
 
-impl ChatString {
+impl FromStr for ChatString {
+    type Err = ChatStringError;
+
     /// Creates a new ApiString from the given string.
     ///
     /// # Errors
     ///
     /// Returns an error if the string contains a LF (line feed) character.
-    pub fn from_str(inner: &str) -> Result<Self, ChatStringError> {
-        if inner.contains('\n') {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.contains('\n') {
             Err(NewlineStrSnafu.build().into())
         } else {
-            let cp437 = str_to_cp437(inner).context(CP437Snafu)?;
+            let cp437 = str_to_cp437(s).context(CP437Snafu)?;
             Ok(Self(cp437))
         }
     }
+}
+
+impl ChatString {
     /// Creates a new ApiString from the given string.
     ///
     /// Invalid characters are replaced with the "?" character.
