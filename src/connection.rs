@@ -22,6 +22,8 @@ use tokio::time::timeout;
 
 use crate::util::{cp437_to_string, str_to_cp437, str_to_cp437_lossy};
 
+pub mod queued;
+
 // MARK: Enums
 
 /// A block that can be used in Minecraft: Pi Edition.
@@ -1877,9 +1879,11 @@ impl Default for ConnectOptions {
 }
 
 /// A communication interface with a Minecraft: Pi Edition game server.
-pub trait Protocol<E = ConnectionError> {
+pub trait Protocol {
+    type Error;
+
     /// Updates the connection options.
-    fn set_options(&mut self, options: ConnectOptions);
+    fn set_options(&mut self, options: ConnectOptions) -> Result<(), Self::Error>;
     /// Sends a command to the server and returns its response.
     ///
     /// If the command does not expect a response (as determined by [`Command::has_response`])
@@ -1889,7 +1893,13 @@ pub trait Protocol<E = ConnectionError> {
     /// The operation will time out after the duration specified in the [`ConnectOptions::response_timeout`] option.
     ///
     /// Server responses are returned without processing or parsing.
-    fn send(&mut self, data: Command<'_>) -> impl Future<Output = Result<String, E>> + Send;
+    fn send(
+        &mut self,
+        command: Command<'_>,
+    ) -> impl Future<Output = Result<String, Self::Error>> + Send;
+
+    /// Flushes the connection and disconnects.
+    fn close(self) -> impl Future<Output = Result<(), Self::Error>> + Send;
 }
 
 /// A connection to a game server using the Minecraft: Pi Edition API protocol.
@@ -1930,19 +1940,30 @@ impl ServerConnection {
         }
     }
 
-    /// Sends a command to the server without waiting for a response.
-    ///
-    /// This should usually be avoided because it may leave a response pending which could be
-    /// read by a future command expecting a response.
-    pub async fn write_command(&mut self, data: Command<'_>) -> Result<(), ConnectionError> {
-        self.socket.write_all(data.to_string().as_bytes()).await?;
+    /// Sends a raw command to the server.
+    pub(crate) async fn send_raw(
+        &mut self,
+        data: &[u8],
+        has_response: bool,
+    ) -> Result<String, ConnectionError> {
+        self.socket.write_all(data).await?;
         self.socket.flush().await?;
-        Ok(())
+
+        if has_response || self.options.always_wait_for_response {
+            if let Some(response_timeout) = self.options.response_timeout {
+                timeout(response_timeout, self.read_frame()).await?
+            } else {
+                assert!(has_response, "Using the `always_wait_for_response` setting without a `response_timeout` for a command that does not expect a response may cause an infinite hang.");
+                self.read_frame().await
+            }
+        } else {
+            Ok(String::new())
+        }
     }
 
     /// Recieve a frame from the connection by either using data that has already been recieved
     /// or waiting for more data from the socket.
-    pub async fn read_frame(&mut self) -> Result<String, ConnectionError> {
+    pub(crate) async fn read_frame(&mut self) -> Result<String, ConnectionError> {
         loop {
             // Attempt to parse a frame from the buffered data. If enough data
             // has already been buffered, the frame is returned.
@@ -1961,7 +1982,7 @@ impl ServerConnection {
     }
 
     /// Attempt to parse a frame from data that has already been recieved.
-    pub fn parse_frame(&mut self) -> Option<String> {
+    pub(crate) fn parse_frame(&mut self) -> Option<String> {
         let idx = self.buffer.find('\n')?;
         let frame = self.buffer.drain(..idx + 1).collect();
         Some(frame)
@@ -1969,25 +1990,21 @@ impl ServerConnection {
 }
 
 impl Protocol for ServerConnection {
-    fn set_options(&mut self, options: ConnectOptions) {
+    type Error = ConnectionError;
+
+    fn set_options(&mut self, options: ConnectOptions) -> Result<(), ConnectionError> {
         self.options = options;
+        Ok(())
     }
 
-    async fn send(&mut self, data: Command<'_>) -> Result<String, ConnectionError> {
-        self.socket.write_all(data.to_string().as_bytes()).await?;
-        self.socket.flush().await?;
+    async fn send(&mut self, command: Command<'_>) -> Result<String, ConnectionError> {
+        self.send_raw(command.to_string().as_bytes(), command.has_response())
+            .await
+    }
 
-        let has_response = data.has_response();
-        if has_response || self.options.always_wait_for_response {
-            if let Some(response_timeout) = self.options.response_timeout {
-                timeout(response_timeout, self.read_frame()).await?
-            } else {
-                assert!(has_response, "Using the `always_wait_for_response` setting without a `response_timeout` for a command that does not expect a response may cause an infinite hang.");
-                self.read_frame().await
-            }
-        } else {
-            Ok(String::new())
-        }
+    async fn close(mut self) -> Result<(), ConnectionError> {
+        self.socket.shutdown().await?;
+        Ok(())
     }
 }
 
