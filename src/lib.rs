@@ -1,14 +1,7 @@
-use std::collections::VecDeque;
-use std::fmt::Display;
-use std::net::SocketAddr;
-use std::time::Duration;
+use std::future::Future;
 
-use bytes::BytesMut;
-use connection::{
-    ChatString, Command, ConnectOptions, ConnectionError, NewlineStrError, Protocol,
-    ServerConnection,
-};
-use snafu::{Backtrace, Snafu};
+use connection::{ChatString, Command, ConnectionError, NewlineStrError, Protocol};
+use snafu::Snafu;
 
 pub mod connection;
 pub mod util;
@@ -22,44 +15,30 @@ pub enum WorldError {
     ApiStrConvert { source: NewlineStrError },
 }
 
-pub struct World<C = ServerConnection>
-where
-    C: Protocol,
-{
-    connection: C,
-}
-
-impl<C: Protocol> From<C> for World<C> {
-    fn from(connection: C) -> Self {
-        World { connection }
-    }
-}
-
-impl World {
-    pub async fn connect(addr: SocketAddr, options: ConnectOptions) -> std::io::Result<Self> {
-        let connection = ServerConnection::new(addr, options).await?;
-        Ok(World { connection })
-    }
-
-    pub fn into_inner(self) -> ServerConnection {
-        self.connection
-    }
-
+pub trait World {
     /// Post one or more messages to the in-game chat as the user.
-    pub async fn post(&mut self, text: &str) -> Result<(), WorldError> {
+    fn post(&mut self, text: &str) -> impl Future<Output = Result<(), WorldError>>;
+    /// Post a single message to the in-game chat as the user.
+    fn post_message(
+        &mut self,
+        message: &ChatString,
+    ) -> impl Future<Output = Result<(), WorldError>>;
+}
+
+impl<T: Protocol> World for T {
+    async fn post(&mut self, text: &str) -> Result<(), WorldError> {
         let messages = text
             .split('\n')
             .map(ChatString::from_str_lossy)
             .collect::<Vec<_>>();
         for message in messages {
-            self.connection.send(Command::ChatPost(&message)).await?;
+            self.send(Command::ChatPost(&message)).await?;
         }
         Ok(())
     }
 
-    /// Post a single message to the in-game chat as the user.
-    pub async fn post_message(&mut self, message: &ChatString) -> Result<(), WorldError> {
-        self.connection.send(Command::ChatPost(message)).await?;
+    async fn post_message(&mut self, message: &ChatString) -> Result<(), WorldError> {
+        self.send(Command::ChatPost(message)).await?;
         Ok(())
     }
 }

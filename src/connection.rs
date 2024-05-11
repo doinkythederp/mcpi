@@ -17,6 +17,7 @@ use nalgebra::{SVector, Vector2, Vector3};
 use snafu::{Backtrace, OptionExt, Snafu};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufWriter};
 use tokio::net::{TcpStream, ToSocketAddrs};
+use tokio::sync::oneshot::error::RecvError;
 use tokio::time::error::Elapsed;
 use tokio::time::timeout;
 
@@ -1846,6 +1847,15 @@ pub enum ConnectionError {
         source: Elapsed,
         backtrace: Backtrace,
     },
+    #[snafu(display("Failed to queue request: channel closed"))]
+    Send { backtrace: Backtrace },
+    #[snafu(display("Request failed: {source}"), context(false))]
+    Recv {
+        source: RecvError,
+        backtrace: Backtrace,
+    },
+    #[snafu(display("Request queue full"))]
+    QueueFull { backtrace: Backtrace },
 }
 
 /// Options that can be set to change the behavior of the connection to the game.
@@ -1880,10 +1890,8 @@ impl Default for ConnectOptions {
 
 /// A communication interface with a Minecraft: Pi Edition game server.
 pub trait Protocol {
-    type Error;
-
     /// Updates the connection options.
-    fn set_options(&mut self, options: ConnectOptions) -> Result<(), Self::Error>;
+    fn set_options(&mut self, options: ConnectOptions) -> Result<(), ConnectionError>;
     /// Sends a command to the server and returns its response.
     ///
     /// If the command does not expect a response (as determined by [`Command::has_response`])
@@ -1896,10 +1904,10 @@ pub trait Protocol {
     fn send(
         &mut self,
         command: Command<'_>,
-    ) -> impl Future<Output = Result<String, Self::Error>> + Send;
+    ) -> impl Future<Output = Result<String, ConnectionError>> + Send;
 
     /// Flushes the connection and disconnects.
-    fn close(self) -> impl Future<Output = Result<(), Self::Error>> + Send;
+    fn close(self) -> impl Future<Output = Result<(), ConnectionError>> + Send;
 }
 
 /// A connection to a game server using the Minecraft: Pi Edition API protocol.
@@ -1990,8 +1998,6 @@ impl ServerConnection {
 }
 
 impl Protocol for ServerConnection {
-    type Error = ConnectionError;
-
     fn set_options(&mut self, options: ConnectOptions) -> Result<(), ConnectionError> {
         self.options = options;
         Ok(())

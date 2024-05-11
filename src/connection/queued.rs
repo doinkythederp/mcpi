@@ -1,8 +1,9 @@
-use snafu::{Backtrace, OptionExt, Snafu};
-use tokio::sync::oneshot::error::RecvError;
+use snafu::OptionExt;
 use tokio::sync::{mpsc, oneshot};
 
-use super::{Command, ConnectOptions, ConnectionError, Protocol, ServerConnection};
+use super::{
+    Command, ConnectOptions, ConnectionError, Protocol, QueueFullSnafu, SendSnafu, ServerConnection,
+};
 
 enum QueueItem {
     Request {
@@ -42,21 +43,6 @@ async fn worker(
     Ok(())
 }
 
-#[derive(Debug, Snafu)]
-pub enum QueuedConnectionError {
-    #[snafu(display("{source}"), context(false))]
-    Connection { source: ConnectionError },
-    #[snafu(display("Failed to queue request: channel closed"))]
-    Send { backtrace: Backtrace },
-    #[snafu(display("Request failed: {source}"), context(false))]
-    Recv {
-        source: RecvError,
-        backtrace: Backtrace,
-    },
-    #[snafu(display("Request queue full"))]
-    QueueFull { backtrace: Backtrace },
-}
-
 /// Handle to a background task that sends requests to the server.
 ///
 /// This struct can be cheaply cloned and sent between threads, and commands
@@ -89,16 +75,14 @@ impl QueuedConnection {
 }
 
 impl Protocol for QueuedConnection {
-    type Error = QueuedConnectionError;
-
-    fn set_options(&mut self, options: ConnectOptions) -> Result<(), QueuedConnectionError> {
+    fn set_options(&mut self, options: ConnectOptions) -> Result<(), ConnectionError> {
         self.channel
             .try_send(QueueItem::Options { options })
             .ok()
             .context(QueueFullSnafu)
     }
 
-    async fn send(&mut self, command: Command<'_>) -> Result<String, QueuedConnectionError> {
+    async fn send(&mut self, command: Command<'_>) -> Result<String, ConnectionError> {
         let permit = self.channel.reserve().await.ok().context(SendSnafu)?;
         let (tx, rx) = oneshot::channel();
         let request = QueueItem::Request {
@@ -107,11 +91,10 @@ impl Protocol for QueuedConnection {
             response: tx,
         };
         permit.send(request);
-        let res = rx.await?;
-        Ok(res?)
+        rx.await?
     }
 
-    async fn close(self) -> Result<(), QueuedConnectionError> {
+    async fn close(self) -> Result<(), ConnectionError> {
         _ = self.channel.send(QueueItem::Close).await;
         Ok(())
     }
