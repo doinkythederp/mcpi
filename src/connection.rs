@@ -152,7 +152,7 @@ impl Display for Tile {
 /// set and later retrieved by the API user.
 ///
 /// See also: [Minecraft: Pi Edition Complete Block List](https://mcpirevival.miraheze.org/wiki/Minecraft:_Pi_Edition_Complete_Block_List)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Default, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct TileData(pub u8);
 
@@ -839,8 +839,8 @@ pub enum Command<'a> {
     WorldGetPlayerIds,
     WorldSetBlock {
         coords: Vector3<i16>,
-        block: u8,
-        data: Option<u8>,
+        block: Tile,
+        data: Option<TileData>,
         /// Raspberry Jam mod extension to set block with NBT data.
         ///
         /// Set to [`None`] when using other servers.
@@ -849,8 +849,8 @@ pub enum Command<'a> {
     WorldSetBlocks {
         coords_1: Vector3<i16>,
         coords_2: Vector3<i16>,
-        block: u8,
-        data: Option<u8>,
+        block: Tile,
+        data: Option<TileData>,
         /// Raspberry Jam mod extension to add NBT data to the blocks being set.
         ///
         /// Set to [`None`] when using other servers.
@@ -1295,7 +1295,7 @@ impl<'a> Display for Command<'a> {
                     "world.setBlock({},{block}{}{})",
                     vector(coords),
                     if json_nbt.is_some() {
-                        format!(",{}", data.unwrap_or(0))
+                        format!(",{}", data.unwrap_or_default())
                     } else {
                         optional(data, true)
                     },
@@ -1315,7 +1315,7 @@ impl<'a> Display for Command<'a> {
                     vector(coords_1),
                     vector(coords_2),
                     if json_nbt.is_some() {
-                        format!(",{}", data.unwrap_or(0))
+                        format!(",{}", data.unwrap_or_default())
                     } else {
                         optional(data, true)
                     },
@@ -2100,8 +2100,8 @@ mod tests {
     fn command_optionals_comma_included_when_mid_arg_some() {
         let command = Command::WorldSetBlock {
             coords: Vector3::default(),
-            block: 1,
-            data: Some(2),
+            block: Tile(1),
+            data: Some(TileData(2)),
             json_nbt: None,
         };
         assert_eq!(command.to_string(), "world.setBlock(0,0,0,1,2)\n");
@@ -2111,7 +2111,7 @@ mod tests {
     fn command_optionals_comma_ommitted_when_mid_arg_none() {
         let command = Command::WorldSetBlock {
             coords: Vector3::default(),
-            block: 1,
+            block: Tile(1),
             data: None,
             json_nbt: None,
         };
@@ -2122,7 +2122,7 @@ mod tests {
     fn command_set_block_includes_data_when_json_nbt_some() {
         let command = Command::WorldSetBlock {
             coords: Vector3::new(1, 2, 3),
-            block: 4,
+            block: Tile(4),
             data: None,
             json_nbt: Some(ApiStr::new("{\"key\": \"value\"}").unwrap()),
         };
@@ -2137,7 +2137,7 @@ mod tests {
         let command = Command::WorldSetBlocks {
             coords_1: Vector3::new(1, 2, 3),
             coords_2: Vector3::new(4, 5, 6),
-            block: 7,
+            block: Tile(7),
             data: None,
             json_nbt: Some(ApiStr::new("{\"key\": \"value\"}").unwrap()),
         };

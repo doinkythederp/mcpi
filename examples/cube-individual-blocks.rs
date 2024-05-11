@@ -25,7 +25,7 @@ pub async fn main() {
                 println!("Setting block at {:?}", Vector3::new(x, y, z));
                 connection
                     .send(Command::WorldSetBlock {
-                        block: Tile::SANDSTONE.0,
+                        block: Tile::SANDSTONE,
                         coords: Vector3::new(x, y, z),
                         data: None,
                         json_nbt: None,

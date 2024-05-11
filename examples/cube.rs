@@ -18,7 +18,7 @@ pub async fn main() {
         .send(Command::WorldSetBlocks {
             coords_1: Vector3::new(0, 25, 0),
             coords_2: Vector3::new(25, 50, 25),
-            block: Tile::SANDSTONE.0,
+            block: Tile::SANDSTONE,
             data: None,
             json_nbt: None,
         })
