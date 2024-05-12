@@ -1,6 +1,22 @@
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
+use nalgebra::{SVector, Scalar};
+
+use crate::{Result, WorldError};
+
+pub fn parse_vector<T, E, const D: usize>(s: &str) -> Result<nalgebra::SVector<T, D>>
+where
+    T: std::str::FromStr<Err = E> + Scalar,
+    WorldError: From<E>,
+{
+    let parts = s
+        .splitn(D, ',')
+        .map(|s| s.parse())
+        .collect::<Result<Vec<T>, E>>()?;
+    Ok(SVector::<T, D>::from_vec(parts))
+}
+
 // Port of Minecraft Pi: Reborn's character handling to Rust
 
 const CP437_CHARACTERS: usize = 256;

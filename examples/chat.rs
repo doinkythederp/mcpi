@@ -1,4 +1,3 @@
-use mcpi::connection::{ConnectOptions, ServerConnection};
 use mcpi::World;
 
 #[tokio::main]
@@ -13,9 +12,7 @@ pub async fn main() {
         None => "Hello, world!",
     };
 
-    let mut connection = ServerConnection::new(addr, ConnectOptions::default())
-        .await
-        .unwrap();
+    let mut connection = World::connect(addr).await.unwrap();
 
     connection.post(message).await.unwrap();
 }

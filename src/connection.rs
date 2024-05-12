@@ -7,7 +7,7 @@
 //! - [MCPI Revival Wiki](https://mcpirevival.miraheze.org/wiki/MCPI_Revival)
 //!
 
-use std::fmt::{self, Display, Formatter};
+use std::fmt::{self, Debug, Display, Formatter};
 use std::future::Future;
 use std::ops::Deref;
 use std::str::FromStr;
@@ -431,7 +431,7 @@ impl Display for JavaEntityType {
 }
 
 /// A key that can be automated (pressed and released) with the MCPI Addons API extension.
-#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct MCPIExtrasKey<'a>(pub ApiStr<'a>);
 
 impl MCPIExtrasKey<'_> {
@@ -587,7 +587,7 @@ impl MCPIExtrasEntityType {
 }
 
 /// A particle that can be shown using the MCPI Addons API extension.
-#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct MCPIExtrasParticle<'a>(pub ApiStr<'a>);
 
 impl MCPIExtrasParticle<'_> {
@@ -619,7 +619,7 @@ impl<'a> Display for MCPIExtrasParticle<'a> {
 
 /// A particle that can be spawned using the [`Command::WorldSpawnParticle`] API call
 /// while connected to a server with the Raspberry Jam API extension.
-#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RaspberryJamParticle<'a>(pub ApiStr<'a>);
 
 impl RaspberryJamParticle<'_> {
@@ -706,11 +706,11 @@ impl Display for Dimension {
 }
 
 /// A player-related setting that can be updated using the API.
-#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PlayerSettingKey<'a>(pub ApiStr<'a>);
 
 impl PlayerSettingKey<'_> {
-    /// Controls whether the player will automatically jump when walking into a block.
+    /// When enabled, the player will automatically jump when walking into a block.
     pub const AUTOJUMP: Self = Self(ApiStr("autojump"));
 }
 
@@ -729,14 +729,14 @@ impl<'a> Display for PlayerSettingKey<'a> {
 }
 
 /// A world-related setting that can be updated using the API.
-#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct WorldSettingKey<'a>(pub ApiStr<'a>);
 
 impl WorldSettingKey<'_> {
-    /// Controls whether players can edit the world (such as by placing or destroying blocks).
+    /// When enabled, players cannot edit the world (such as by placing or destroying blocks).
     pub const WORLD_IMMUTABLE: Self = Self(ApiStr("world_immutable"));
-    /// Controls whether player name tags will be shown.
-    pub const NAME_TAGS: Self = Self(ApiStr("name_tags"));
+    /// When disabled, player name tags will not be shown above their heads.
+    pub const NAMETAGS_VISIBLE: Self = Self(ApiStr("nametags_visible"));
     /// Raspberry Jam extension: controls whether NBT data will be included when fetching block data.
     pub const INCLUDE_NBT_WITH_DATA: Self = Self(ApiStr("include_nbt_with_data"));
     /// Raspberry Jam extension: while enabled, block updates requested over the API will be queued but not executed.
@@ -758,7 +758,7 @@ impl<'a> Display for WorldSettingKey<'a> {
 }
 
 /// An event-related setting that can be updated using the API. (Raspberry Jam extension)
-#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct EventsSettingKey<'a>(pub ApiStr<'a>);
 
 impl WorldSettingKey<'_> {
@@ -777,6 +777,24 @@ impl<'a> Deref for EventsSettingKey<'a> {
 }
 
 impl<'a> Display for EventsSettingKey<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.0, f)
+    }
+}
+
+/// The identifier of an entity in the game world.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct EntityId(pub i32);
+
+impl Deref for EntityId {
+    type Target = i32;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Display for EntityId {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         Display::fmt(&self.0, f)
     }
@@ -803,23 +821,23 @@ pub enum Command<'a> {
     // Camera APIs
     CameraModeSetFixed,
     CameraModeSetFollow {
-        target: Option<i32>,
+        target: Option<EntityId>,
     },
     CameraModeSetNormal {
-        target: Option<i32>,
+        target: Option<EntityId>,
     },
     // TODO: Test whether this works on vanilla
     CameraModeSetThirdPerson {
-        target: Option<i32>,
+        target: Option<EntityId>,
     },
     CameraSetPos(Vector3<f64>),
     // Chat APIs
     ChatPost(&'a ChatString),
     // Entity APIs
-    EntityGetPos(i32),
-    EntityGetTile(i32),
-    EntitySetPos(i32, Vector3<f64>),
-    EntitySetTile(i32, Vector3<i16>),
+    EntityGetPos(EntityId),
+    EntityGetTile(EntityId),
+    EntitySetPos(EntityId, Vector3<f64>),
+    EntitySetTile(EntityId, Vector3<i16>),
     // Player APIs
     PlayerGetPos,
     PlayerGetTile,
@@ -840,8 +858,8 @@ pub enum Command<'a> {
     WorldGetPlayerIds,
     WorldSetBlock {
         coords: Vector3<i16>,
-        block: Tile,
-        data: Option<TileData>,
+        tile: Tile,
+        data: TileData,
         /// Raspberry Jam mod extension to set block with NBT data.
         ///
         /// Set to [`None`] when using other servers.
@@ -850,8 +868,8 @@ pub enum Command<'a> {
     WorldSetBlocks {
         coords_1: Vector3<i16>,
         coords_2: Vector3<i16>,
-        block: Tile,
-        data: Option<TileData>,
+        tile: Tile,
+        data: TileData,
         /// Raspberry Jam mod extension to add NBT data to the blocks being set.
         ///
         /// Set to [`None`] when using other servers.
@@ -873,11 +891,11 @@ pub enum Command<'a> {
     /// When using the Raspberry Jam mod, this can be set to [`None`] to get the current player's ID.
     WorldGetPlayerId(Option<ApiStr<'a>>),
     WorldGetEntities(Option<JavaEntityType>),
-    WorldRemoveEntity(i32),
+    WorldRemoveEntity(EntityId),
     WorldRemoveEntities(Option<JavaEntityType>),
     WorldSetSign {
         coords: Vector3<i16>,
-        block: Tile,
+        tile: Tile,
         data: TileData,
         lines: Vec<ApiStr<'a>>,
     },
@@ -888,24 +906,24 @@ pub enum Command<'a> {
     WorldGetEntityTypes,
 
     // Entity APIs
-    EntityGetName(i32),
-    EntityGetDirection(i32),
-    EntitySetDirection(i32, Vector3<f64>),
-    EntityGetPitch(i32),
-    EntitySetPitch(i32, f32),
-    EntityGetRotation(i32),
-    EntitySetRotation(i32, f32),
-    EntityEventsClear(i32),
-    EntityEventsBlockHits(i32),
-    EntityEventsChatPosts(i32),
-    EntityEventsProjectileHits(i32),
+    EntityGetName(EntityId),
+    EntityGetDirection(EntityId),
+    EntitySetDirection(EntityId, Vector3<f64>),
+    EntityGetPitch(EntityId),
+    EntitySetPitch(EntityId, f32),
+    EntityGetRotation(EntityId),
+    EntitySetRotation(EntityId, f32),
+    EntityEventsClear(EntityId),
+    EntityEventsBlockHits(EntityId),
+    EntityEventsChatPosts(EntityId),
+    EntityEventsProjectileHits(EntityId),
     EntityGetEntities {
-        target: i32,
+        target: EntityId,
         distance: i32,
         entity_type: Option<JavaEntityType>,
     },
     EntityRemoveEntities {
-        target: i32,
+        target: EntityId,
         distance: i32,
         entity_type: Option<JavaEntityType>,
     },
@@ -999,11 +1017,11 @@ pub enum Command<'a> {
         direction: Vector2<f32>, // TODO: is this the most correct type?
     },
     CustomEntitySetAge {
-        entity_id: i32,
+        entity_id: EntityId,
         age: i32,
     },
     CustomEntitySetSheepColor {
-        entity_id: i32,
+        entity_id: EntityId,
         color: SheepColor,
     },
 
@@ -1036,19 +1054,19 @@ pub enum Command<'a> {
 
     // Block APIs
     BlockGetLightLevel {
-        block: Tile,
+        tile: Tile,
     },
     BlockSetLightLevel {
-        block: Tile,
+        tile: Tile,
         level: f32,
     },
 
     // Entity APIs
     EntitySetDimension {
-        entity_id: i32,
+        entity_id: EntityId,
         dimension: Dimension,
     },
-    EntityGetNameAndUUID(i32),
+    EntityGetNameAndUUID(EntityId),
     RaspberryJamWorldSpawnEntity {
         entity_type: JavaEntityType,
         coords: Vector3<f64>,
@@ -1064,13 +1082,13 @@ pub enum Command<'a> {
     // Camera APIs
     CameraGetEntityId,
     CameraSetFollow {
-        target: Option<i32>,
+        target: Option<EntityId>,
     },
     CameraSetNormal {
-        target: Option<i32>,
+        target: Option<EntityId>,
     },
     CameraSetThirdPerson {
-        target: Option<i32>,
+        target: Option<EntityId>,
     },
     CameraSetDebug,
     CameraSetDistance(f32),
@@ -1078,7 +1096,7 @@ pub enum Command<'a> {
 
 impl Command<'_> {
     #[must_use]
-    pub fn has_response(&self) -> bool {
+    pub const fn has_response(&self) -> bool {
         match self {
             Self::CameraModeSetFixed
             | Self::CameraModeSetFollow { .. }
@@ -1287,39 +1305,29 @@ impl<'a> Display for Command<'a> {
             }
             Self::WorldSetBlock {
                 coords,
-                block,
+                tile: block,
                 data,
                 json_nbt,
             } => {
                 writeln!(
                     f,
-                    "world.setBlock({},{block}{}{})",
+                    "world.setBlock({},{block},{data}{})",
                     vector(coords),
-                    if json_nbt.is_some() {
-                        format!(",{}", data.unwrap_or_default())
-                    } else {
-                        optional(data, true)
-                    },
                     optional(json_nbt, true)
                 )
             }
             Self::WorldSetBlocks {
                 coords_1,
                 coords_2,
-                block,
+                tile: block,
                 data,
                 json_nbt,
             } => {
                 writeln!(
                     f,
-                    "world.setBlocks({},{},{block}{}{})",
+                    "world.setBlocks({},{},{block},{data}{})",
                     vector(coords_1),
                     vector(coords_2),
-                    if json_nbt.is_some() {
-                        format!(",{}", data.unwrap_or_default())
-                    } else {
-                        optional(data, true)
-                    },
                     optional(json_nbt, true)
                 )
             }
@@ -1328,7 +1336,7 @@ impl<'a> Display for Command<'a> {
             }
             Self::WorldSetSign {
                 coords,
-                block,
+                tile: block,
                 data,
                 lines,
             } => {
@@ -1603,10 +1611,10 @@ impl<'a> Display for Command<'a> {
                     vector(coords_2)
                 )
             }
-            Self::BlockGetLightLevel { block } => {
+            Self::BlockGetLightLevel { tile: block } => {
                 writeln!(f, "block.getLightLevel({block})")
             }
-            Self::BlockSetLightLevel { block, level } => {
+            Self::BlockSetLightLevel { tile: block, level } => {
                 writeln!(f, "block.setLightLevel({block},{level})")
             }
             Self::EntitySetDimension {
@@ -1680,7 +1688,7 @@ impl<'a> Display for Command<'a> {
 pub struct NewlineStrError;
 
 /// A string that does not contain the LF (line feed) character.
-#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct ApiStr<'a>(&'a str);
 
@@ -1720,7 +1728,7 @@ impl<'a> ApiStr<'a> {
     ///
     /// The string must not contain LF (line feed) characters.
     #[must_use]
-    pub unsafe fn new_unchecked(inner: &'a str) -> Self {
+    pub const unsafe fn new_unchecked(inner: &'a str) -> Self {
         Self(inner)
     }
 }
@@ -1889,7 +1897,7 @@ impl Default for ConnectOptions {
 }
 
 /// A communication interface with a Minecraft: Pi Edition game server.
-pub trait Protocol {
+pub trait Protocol: Clone + Debug {
     /// Updates the connection options.
     fn set_options(&mut self, options: ConnectOptions) -> Result<(), ConnectionError>;
     /// Sends a command to the server and returns its response.
@@ -1902,7 +1910,7 @@ pub trait Protocol {
     ///
     /// Server responses are returned without processing or parsing.
     fn send(
-        &mut self,
+        &self,
         command: Command<'_>,
     ) -> impl Future<Output = Result<String, ConnectionError>> + Send;
 
@@ -1946,6 +1954,21 @@ impl ServerConnection {
             buffer: String::new(),
             options,
         }
+    }
+
+    pub fn set_options(&mut self, options: ConnectOptions) -> Result<(), ConnectionError> {
+        self.options = options;
+        Ok(())
+    }
+
+    pub async fn send(&mut self, command: Command<'_>) -> Result<String, ConnectionError> {
+        self.send_raw(command.to_string().as_bytes(), command.has_response())
+            .await
+    }
+
+    pub async fn close(mut self) -> Result<(), ConnectionError> {
+        self.socket.shutdown().await?;
+        Ok(())
     }
 
     /// Sends a raw command to the server.
@@ -1997,23 +2020,6 @@ impl ServerConnection {
     }
 }
 
-impl Protocol for ServerConnection {
-    fn set_options(&mut self, options: ConnectOptions) -> Result<(), ConnectionError> {
-        self.options = options;
-        Ok(())
-    }
-
-    async fn send(&mut self, command: Command<'_>) -> Result<String, ConnectionError> {
-        self.send_raw(command.to_string().as_bytes(), command.has_response())
-            .await
-    }
-
-    async fn close(mut self) -> Result<(), ConnectionError> {
-        self.socket.shutdown().await?;
-        Ok(())
-    }
-}
-
 // MARK: Tests
 
 #[cfg(test)]
@@ -2031,7 +2037,7 @@ mod tests {
     }
 
     #[test]
-    fn api_str_unchecked_accepts_invalid_strings() {
+    const fn api_str_unchecked_accepts_invalid_strings() {
         let _ = unsafe { super::ApiStr::new_unchecked("hello\n") };
     }
 
@@ -2098,59 +2104,10 @@ mod tests {
 
     #[test]
     fn command_optionals_comma_ommitted_when_first_arg_some() {
-        let command = Command::CameraModeSetFollow { target: Some(1) };
+        let command = Command::CameraModeSetFollow {
+            target: Some(EntityId(1)),
+        };
         assert_eq!(command.to_string(), "camera.mode.setFollow(1)\n");
-    }
-
-    #[test]
-    fn command_optionals_comma_included_when_mid_arg_some() {
-        let command = Command::WorldSetBlock {
-            coords: Vector3::default(),
-            block: Tile(1),
-            data: Some(TileData(2)),
-            json_nbt: None,
-        };
-        assert_eq!(command.to_string(), "world.setBlock(0,0,0,1,2)\n");
-    }
-
-    #[test]
-    fn command_optionals_comma_ommitted_when_mid_arg_none() {
-        let command = Command::WorldSetBlock {
-            coords: Vector3::default(),
-            block: Tile(1),
-            data: None,
-            json_nbt: None,
-        };
-        assert_eq!(command.to_string(), "world.setBlock(0,0,0,1)\n");
-    }
-
-    #[test]
-    fn command_set_block_includes_data_when_json_nbt_some() {
-        let command = Command::WorldSetBlock {
-            coords: Vector3::new(1, 2, 3),
-            block: Tile(4),
-            data: None,
-            json_nbt: Some(ApiStr::new("{\"key\": \"value\"}").unwrap()),
-        };
-        assert_eq!(
-            command.to_string(),
-            "world.setBlock(1,2,3,4,0,{\"key\": \"value\"})\n"
-        );
-    }
-
-    #[test]
-    fn command_set_blocks_includes_data_when_json_nbt_some() {
-        let command = Command::WorldSetBlocks {
-            coords_1: Vector3::new(1, 2, 3),
-            coords_2: Vector3::new(4, 5, 6),
-            block: Tile(7),
-            data: None,
-            json_nbt: Some(ApiStr::new("{\"key\": \"value\"}").unwrap()),
-        };
-        assert_eq!(
-            command.to_string(),
-            "world.setBlocks(1,2,3,4,5,6,7,0,{\"key\": \"value\"})\n"
-        );
     }
 
     #[test]

@@ -2,7 +2,7 @@
 //!
 //! All in all, 15,625 commands will be sent to the server. (50^3)
 
-use mcpi::connection::{Command, ConnectOptions, Protocol, ServerConnection, Tile};
+use mcpi::connection::{Command, ConnectOptions, ServerConnection, Tile, TileData};
 use nalgebra::Vector3;
 
 #[tokio::main]
@@ -25,9 +25,9 @@ pub async fn main() {
                 println!("Setting block at {:?}", Vector3::new(x, y, z));
                 connection
                     .send(Command::WorldSetBlock {
-                        block: Tile::SANDSTONE,
+                        tile: Tile::SANDSTONE,
                         coords: Vector3::new(x, y, z),
-                        data: None,
+                        data: TileData::default(),
                         json_nbt: None,
                     })
                     .await

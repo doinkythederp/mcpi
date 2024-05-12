@@ -82,7 +82,7 @@ impl Protocol for QueuedConnection {
             .context(QueueFullSnafu)
     }
 
-    async fn send(&mut self, command: Command<'_>) -> Result<String, ConnectionError> {
+    async fn send(&self, command: Command<'_>) -> Result<String, ConnectionError> {
         let permit = self.channel.reserve().await.ok().context(SendSnafu)?;
         let (tx, rx) = oneshot::channel();
         let request = QueueItem::Request {
