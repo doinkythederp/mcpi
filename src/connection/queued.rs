@@ -75,6 +75,10 @@ impl QueuedConnection {
 }
 
 impl Protocol for QueuedConnection {
+    fn pressure(&self) -> f64 {
+        self.channel.capacity() as f64 - self.channel.max_capacity() as f64
+    }
+
     fn set_options(&mut self, options: ConnectOptions) -> Result<(), ConnectionError> {
         self.channel
             .try_send(QueueItem::Options { options })

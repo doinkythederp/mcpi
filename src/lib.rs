@@ -4,16 +4,18 @@
 use std::future::Future;
 use std::num::{ParseFloatError, ParseIntError};
 use std::str::FromStr;
+use std::time::{Duration, Instant};
 
-use block::ParseBlockError;
+use block::{BlockFace, InvalidBlockFaceError, ParseBlockError};
 use connection::queued::QueuedConnection;
 use connection::{
     ApiStr, ChatString, Command, ConnectionError, EntityId, NewlineStrError, Protocol, Tile,
     TileData, WorldSettingKey,
 };
 use entity::{ClientPlayer, Player};
+use futures_core::Stream;
 use nalgebra::{DMatrix, Vector2, Vector3};
-use snafu::Snafu;
+use snafu::{OptionExt, Snafu};
 
 pub mod block;
 pub mod camera;
@@ -36,6 +38,10 @@ pub enum WorldError {
     ParseFloat { source: ParseFloatError },
     #[snafu(display("{source}"), context(false))]
     ParseBlock { source: ParseBlockError },
+    #[snafu(display("Not enough parts in server's response"))]
+    NotEnoughParts,
+    #[snafu(display("{source}"), context(false))]
+    InvalidBlockFace { source: InvalidBlockFaceError },
 }
 
 pub(crate) type Result<T = (), E = WorldError> = std::result::Result<T, E>;
@@ -263,6 +269,71 @@ impl<T: Protocol> World<T> {
     pub async fn set_nametags_visible(&mut self, enabled: bool) -> Result {
         self.set(WorldSettingKey::NAMETAGS_VISIBLE, enabled).await
     }
+
+    /// Clears any pending events that have yet to be received.
+    pub async fn clear_events(&mut self) -> Result<()> {
+        self.connection.send(Command::EventsClear).await?;
+        Ok(())
+    }
+
+    /// Polls for any block hits that have occurred since the last call to this method.
+    pub async fn poll_block_hits(&self) -> Result<Vec<BlockHit>> {
+        let hits = self.connection.send(Command::EventsBlockHits).await?;
+        hits.split('|')
+            .map(|hit| {
+                let mut hit = hit.split(',').map(i16::from_str);
+                Ok::<_, WorldError>(BlockHit {
+                    coords: Vector3::new(
+                        hit.next().context(NotEnoughPartsSnafu)??,
+                        hit.next().context(NotEnoughPartsSnafu)??,
+                        hit.next().context(NotEnoughPartsSnafu)??,
+                    ),
+                    face: hit.next().context(NotEnoughPartsSnafu)??.try_into()?,
+                    player_id: EntityId(hit.next().context(NotEnoughPartsSnafu)??.into()),
+                })
+            })
+            .collect()
+    }
+
+    /// Creates a stream of block hit events. If the connection's event queue is full, polls will not be sent.
+    ///
+    /// # Arguments
+    ///
+    /// * `interval` - The interval at which to poll for block hits.
+    pub fn block_hits(&self, interval: Duration) -> impl Stream<Item = Result<BlockHit>> {
+        let world = self.clone();
+        async_stream::stream! {
+            let mut interval = tokio::time::interval(interval);
+            loop {
+                interval.tick().await;
+                let hits = match world.poll_block_hits().await {
+                    Ok(hits) => hits,
+                    Err(e) => match e {
+                        WorldError::Connection { source: ConnectionError::QueueFull { .. } } => {
+                            continue;
+                        }
+                        e => {
+                            yield Err(e);
+                            return;
+                        },
+                    }
+                };
+                for hit in hits {
+                    yield Ok(hit);
+                }
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct BlockHit {
+    /// The coordinates of the block that was hit.
+    pub coords: Vector3<i16>,
+    /// The face of the block that was hit.
+    pub face: BlockFace,
+    /// The ID of the player that hit the block.
+    pub player_id: EntityId,
 }
 
 // #[cfg(test)]

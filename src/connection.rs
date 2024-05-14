@@ -95,7 +95,7 @@ impl Tile {
     pub const WALL_SIGN: Self = Self(68);
     pub const IRON_DOOR: Self = Self(71);
     pub const REDSTONE_ORE: Self = Self(73);
-    pub const LIT_REDSTONE_ORE: Self = Self(73);
+    pub const LIT_REDSTONE_ORE: Self = Self(74);
     pub const SNOW: Self = Self(78);
     pub const ICE: Self = Self(79);
     pub const SNOW_BLOCK: Self = Self(80);
@@ -128,6 +128,11 @@ impl Tile {
     pub const LEAVES_CARRIED: Self = Self(254);
     // TODO: what is this?
     pub const STONE_1: Self = Self(255);
+
+    /// Returns a helper struct that can be converted to a human-readable version of the block name.
+    pub const fn display(self) -> TileDisplay {
+        TileDisplay::new(self)
+    }
 }
 
 impl Deref for Tile {
@@ -141,6 +146,114 @@ impl Deref for Tile {
 impl Display for Tile {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         Display::fmt(&self.0, f)
+    }
+}
+
+/// Helper struct for converting a [`Tile`] to a human-readable string.
+///
+/// Implements a human-readable [`Display`] for [`Tile`].
+pub struct TileDisplay(Tile);
+
+impl TileDisplay {
+    pub const fn new(tile: Tile) -> Self {
+        Self(tile)
+    }
+}
+
+impl Display for TileDisplay {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self.0 {
+            Tile::AIR => write!(f, "Air"),
+            Tile::STONE => write!(f, "Stone"),
+            Tile::GRASS_BLOCK => write!(f, "Grass Block"),
+            Tile::DIRT => write!(f, "Dirt"),
+            Tile::COBBLESTONE => write!(f, "Cobblestone"),
+            Tile::PLANKS => write!(f, "Planks"),
+            Tile::SAPLING => write!(f, "Sapling"),
+            Tile::BEDROCK => write!(f, "Bedrock"),
+            Tile::WATER => write!(f, "Water"),
+            Tile::STILL_WATER => write!(f, "Still Water"),
+            Tile::LAVA => write!(f, "Lava"),
+            Tile::STILL_LAVA => write!(f, "Still Lava"),
+            Tile::SAND => write!(f, "Sand"),
+            Tile::GRAVEL => write!(f, "Gravel"),
+            Tile::GOLD_ORE => write!(f, "Gold Ore"),
+            Tile::IRON_ORE => write!(f, "Iron Ore"),
+            Tile::COAL_ORE => write!(f, "Coal Ore"),
+            Tile::LOG => write!(f, "Log"),
+            Tile::LEAVES => write!(f, "Leaves"),
+            Tile::GLASS => write!(f, "Glass"),
+            Tile::LAPIS_ORE => write!(f, "Lapis Ore"),
+            Tile::LAPIS_BLOCK => write!(f, "Lapis Block"),
+            Tile::SANDSTONE => write!(f, "Sandstone"),
+            Tile::BED => write!(f, "Bed"),
+            Tile::COBWEB => write!(f, "Cobweb"),
+            Tile::BUSH => write!(f, "Bush"),
+            Tile::WOOL => write!(f, "Wool"),
+            Tile::DANDELION => write!(f, "Dandelion"),
+            Tile::BLUE_ROSE => write!(f, "Blue Rose"),
+            Tile::BROWN_MUSHROOM => write!(f, "Brown Mushroom"),
+            Tile::RED_MUSHROOM => write!(f, "Red Mushroom"),
+            Tile::GOLD_BLOCK => write!(f, "Gold Block"),
+            Tile::IRON_BLOCK => write!(f, "Iron Block"),
+            Tile::DOUBLE_SLAB => write!(f, "Double Slab"),
+            Tile::SLAB => write!(f, "Slab"),
+            Tile::BRICKS => write!(f, "Bricks"),
+            Tile::TNT => write!(f, "TNT"),
+            Tile::BOOKSHELF => write!(f, "Bookshelf"),
+            Tile::MOSSY_COBBLESTONE => write!(f, "Mossy Cobblestone"),
+            Tile::OBSIDIAN => write!(f, "Obsidian"),
+            Tile::TORCH => write!(f, "Torch"),
+            Tile::FIRE => write!(f, "Fire"),
+            Tile::WOODEN_STAIRS => write!(f, "Wooden Stairs"),
+            Tile::CHEST => write!(f, "Chest"),
+            Tile::DIAMOND_ORE => write!(f, "Diamond Ore"),
+            Tile::DIAMOND_BLOCK => write!(f, "Diamond Block"),
+            Tile::CRAFTING_TABLE => write!(f, "Crafting Table"),
+            Tile::WHEAT => write!(f, "Wheat"),
+            Tile::FARMLAND => write!(f, "Farmland"),
+            Tile::FURNACE => write!(f, "Furnace"),
+            Tile::LIT_FURNACE => write!(f, "Lit Furnace"),
+            Tile::SIGN => write!(f, "Sign"),
+            Tile::WOODEN_DOOR => write!(f, "Wooden Door"),
+            Tile::LADDER => write!(f, "Ladder"),
+            Tile::COBBLESTONE_STAIRS => write!(f, "Cobblestone Stairs"),
+            Tile::WALL_SIGN => write!(f, "Wall Sign"),
+            Tile::IRON_DOOR => write!(f, "Iron Door"),
+            Tile::REDSTONE_ORE => write!(f, "Redstone Ore"),
+            Tile::LIT_REDSTONE_ORE => write!(f, "Lit Redstone Ore"),
+            Tile::SNOW => write!(f, "Snow"),
+            Tile::ICE => write!(f, "Ice"),
+            Tile::SNOW_BLOCK => write!(f, "Snow Block"),
+            Tile::CACTUS => write!(f, "Cactus"),
+            Tile::CLAY => write!(f, "Clay"),
+            Tile::SUGARCANE => write!(f, "Sugarcane"),
+            Tile::FENCE => write!(f, "Fence"),
+            Tile::NETHER_BRICKS => write!(f, "Nether Bricks"),
+            Tile::GLOWSTONE => write!(f, "Glowstone"),
+            Tile::INVISIBLE_BEDROCK => write!(f, "Invisible Bedrock"),
+            Tile::TRAPDOOR => write!(f, "Trapdoor"),
+            Tile::STONE_BRICKS => write!(f, "Stone Bricks"),
+            Tile::GLASS_PANE => write!(f, "Glass Pane"),
+            Tile::MELON => write!(f, "Melon"),
+            Tile::MELON_STEM => write!(f, "Melon Stem"),
+            Tile::FENCE_GATE => write!(f, "Fence Gate"),
+            Tile::BRICK_STAIRS => write!(f, "Brick Stairs"),
+            Tile::STONE_BRICK_STAIRS => write!(f, "Stone Brick Stairs"),
+            Tile::NETHER_BRICK_STAIRS => write!(f, "Nether Brick Stairs"),
+            Tile::SANDSTONE_STAIRS => write!(f, "Sandstone Stairs"),
+            Tile::QUARTZ => write!(f, "Quartz"),
+            Tile::QUARTZ_STAIRS => write!(f, "Quartz Stairs"),
+            Tile::STONECUTTER => write!(f, "Stonecutter"),
+            Tile::GLOWING_OBSIDIAN => write!(f, "Glowing Obsidian"),
+            Tile::NETHER_REACTOR_CORE => write!(f, "Nether Reactor Core"),
+            Tile::UPDATE => write!(f, "Update Block"),
+            Tile::ATEUPD => write!(f, "Ateupd Block"),
+            Tile::GRASS_BLOCK_CARRIED => write!(f, "Grass Block Carried"),
+            Tile::LEAVES_CARRIED => write!(f, "Leaves Carried"),
+            Tile::STONE_1 => write!(f, "Stone 1"),
+            _ => write!(f, "Unknown Block ({})", self.0),
+        }
     }
 }
 
@@ -1916,6 +2029,9 @@ pub trait Protocol: Clone + Debug {
 
     /// Flushes the connection and disconnects.
     fn close(self) -> impl Future<Output = Result<(), ConnectionError>> + Send;
+
+    /// Returns the percent of the transmission queue that is full.
+    fn pressure(&self) -> f64;
 }
 
 /// A connection to a game server using the Minecraft: Pi Edition API protocol.

@@ -1,7 +1,9 @@
 use std::future::Future;
+use std::str::FromStr;
 
 use nalgebra::Vector3;
 
+use crate::block::BlockFace;
 use crate::connection::{Command, EntityId, PlayerSettingKey, Protocol};
 use crate::util::parse_vector;
 use crate::Result;
@@ -22,6 +24,9 @@ pub trait Entity {
     fn set_tile(&mut self, tile: Vector3<i16>) -> impl Future<Output = Result>;
 }
 
+/// A player's entity ID with a connection to their game.
+///
+/// This struct is used to interact with a player's entity in the game world.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Player<T: Protocol> {
     connection: T,
@@ -75,6 +80,13 @@ impl<T: Protocol> Entity for Player<T> {
             .send(Command::EntitySetTile(self.id, tile))
             .await?;
         Ok(())
+    }
+}
+
+impl EntityId {
+    /// Creates a Player instance from this entity ID, allowing interaction with the player.
+    pub fn to_player<T: Protocol>(self, connection: T) -> Player<T> {
+        Player::new(connection, self)
     }
 }
 

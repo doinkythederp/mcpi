@@ -53,3 +53,44 @@ impl FromStr for Block {
         })
     }
 }
+
+/// Failed to convert a block face ID to a `BlockFace`.
+#[derive(Debug, Snafu)]
+#[snafu(display("Invalid block face `{id}`"))]
+pub struct InvalidBlockFaceError {
+    id: i32,
+}
+
+/// Represents a face of a block.
+#[repr(i16)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum BlockFace {
+    /// The side of the block facing towards Y = -∞ (i.e. the bottom of the block).
+    NegativeY = 0,
+    /// The side of the block facing towards Y = ∞ (i.e. the top of the block).
+    PositiveY,
+    /// The side of the block facing towards z = -∞.
+    NegativeZ,
+    /// The side of the block facing towards Z = ∞.
+    PositiveZ,
+    /// The side of the block facing towards X = -∞.
+    NegativeX,
+    /// The side of the block facing towards X = ∞.
+    PositiveX,
+}
+
+impl TryFrom<i16> for BlockFace {
+    type Error = InvalidBlockFaceError;
+
+    fn try_from(id: i16) -> Result<Self, InvalidBlockFaceError> {
+        Ok(match id {
+            0 => Self::NegativeY,
+            1 => Self::PositiveY,
+            2 => Self::NegativeZ,
+            3 => Self::PositiveZ,
+            4 => Self::NegativeX,
+            5 => Self::PositiveX,
+            id => InvalidBlockFaceSnafu { id }.fail()?,
+        })
+    }
+}
