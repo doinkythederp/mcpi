@@ -12,7 +12,7 @@ pub async fn main() {
         None => "Hello, world!",
     };
 
-    let mut connection = World::connect(addr).await.unwrap();
+    let mut world = World::connect(addr).await.unwrap();
 
-    connection.post(message).await.unwrap();
+    world.post(message).await.unwrap();
 }

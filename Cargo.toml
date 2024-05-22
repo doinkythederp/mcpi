@@ -16,5 +16,8 @@ snafu = "0.8.2"
 tokio = { version = "1.37.0", features = ["net", "sync", "io-util", "macros"] }
 
 [dev-dependencies]
+chrono = "0.4.38"
 futures-util = "0.3.30"
+line_drawing = "1.0.0"
+rand = "0.8.5"
 tokio = { version = "1.37.0", features = ["full"] }

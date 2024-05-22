@@ -13,7 +13,7 @@ use std::ops::Deref;
 use std::str::FromStr;
 use std::time::Duration;
 
-use nalgebra::{SVector, Vector2, Vector3};
+use nalgebra::{Point, Point2, Point3, Scalar};
 use snafu::{Backtrace, OptionExt, Snafu};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufWriter};
 use tokio::net::{TcpStream, ToSocketAddrs};
@@ -943,19 +943,19 @@ pub enum Command<'a> {
     CameraModeSetThirdPerson {
         target: Option<EntityId>,
     },
-    CameraSetPos(Vector3<f64>),
+    CameraSetPos(Point3<f64>),
     // Chat APIs
     ChatPost(&'a ChatString),
     // Entity APIs
     EntityGetPos(EntityId),
     EntityGetTile(EntityId),
-    EntitySetPos(EntityId, Vector3<f64>),
-    EntitySetTile(EntityId, Vector3<i16>),
+    EntitySetPos(EntityId, Point3<f64>),
+    EntitySetTile(EntityId, Point3<i16>),
     // Player APIs
     PlayerGetPos,
     PlayerGetTile,
-    PlayerSetPos(Vector3<f64>),
-    PlayerSetTile(Vector3<i16>),
+    PlayerSetPos(Point3<f64>),
+    PlayerSetTile(Point3<i16>),
     PlayerSetting {
         key: PlayerSettingKey<'a>,
         value: bool,
@@ -963,14 +963,14 @@ pub enum Command<'a> {
     // World APIs
     WorldCheckpointRestore,
     WorldCheckpointSave,
-    WorldGetBlock(Vector3<i16>),
+    WorldGetBlock(Point3<i16>),
     /// Has Raspberry Jam mod extension to get block with NBT data. Requires a world setting to be set.
     /// TODO: look into this
-    WorldGetBlockWithData(Vector3<i16>),
-    WorldGetHeight(Vector2<i16>),
+    WorldGetBlockWithData(Point3<i16>),
+    WorldGetHeight(Point2<i16>),
     WorldGetPlayerIds,
     WorldSetBlock {
-        coords: Vector3<i16>,
+        coords: Point3<i16>,
         tile: Tile,
         data: TileData,
         /// Raspberry Jam mod extension to set block with NBT data.
@@ -979,8 +979,8 @@ pub enum Command<'a> {
         json_nbt: Option<ApiStr<'a>>,
     },
     WorldSetBlocks {
-        coords_1: Vector3<i16>,
-        coords_2: Vector3<i16>,
+        coords_1: Point3<i16>,
+        coords_2: Point3<i16>,
         tile: Tile,
         data: TileData,
         /// Raspberry Jam mod extension to add NBT data to the blocks being set.
@@ -1000,20 +1000,20 @@ pub enum Command<'a> {
     // https://dev.bukkit.org/projects/raspberryjuice
 
     // World APIs
-    WorldGetBlocks(Vector3<i16>, Vector3<i16>),
+    WorldGetBlocks(Point3<i16>, Point3<i16>),
     /// When using the Raspberry Jam mod, this can be set to [`None`] to get the current player's ID.
     WorldGetPlayerId(Option<ApiStr<'a>>),
     WorldGetEntities(Option<JavaEntityType>),
     WorldRemoveEntity(EntityId),
     WorldRemoveEntities(Option<JavaEntityType>),
     WorldSetSign {
-        coords: Vector3<i16>,
+        coords: Point3<i16>,
         tile: Tile,
         data: TileData,
         lines: Vec<ApiStr<'a>>,
     },
     RaspberryJuiceWorldSpawnEntity {
-        coords: Vector3<f64>,
+        coords: Point3<f64>,
         entity_type: JavaEntityType,
     },
     WorldGetEntityTypes,
@@ -1021,7 +1021,7 @@ pub enum Command<'a> {
     // Entity APIs
     EntityGetName(EntityId),
     EntityGetDirection(EntityId),
-    EntitySetDirection(EntityId, Vector3<f64>),
+    EntitySetDirection(EntityId, Point3<f64>),
     EntityGetPitch(EntityId),
     EntitySetPitch(EntityId, f32),
     EntityGetRotation(EntityId),
@@ -1043,8 +1043,8 @@ pub enum Command<'a> {
 
     // Player APIs
     PlayerGetAbsPos,
-    PlayerSetAbsPos(Vector3<f64>),
-    PlayerSetDirection(Vector3<f64>),
+    PlayerSetAbsPos(Point3<f64>),
+    PlayerSetDirection(Point3<f64>),
     PlayerGetDirection,
     PlayerSetRotation(f32),
     PlayerGetRotation,
@@ -1110,7 +1110,7 @@ pub enum Command<'a> {
     // Custom World API
     CustomWorldParticle {
         particle: MCPIExtrasParticle<'a>,
-        coords: Vector3<f32>,
+        coords: Point3<f32>,
     },
     CustomWorldDir,
     CustomWorldName,
@@ -1126,8 +1126,8 @@ pub enum Command<'a> {
     CustomEntitySpawn {
         entity_type: MCPIExtrasEntityType,
         health: i32,
-        coords: Vector3<f32>,
-        direction: Vector2<f32>, // TODO: is this the most correct type?
+        coords: Point3<f32>,
+        direction: Point2<f32>, // TODO: is this the most correct type?
     },
     CustomEntitySetAge {
         entity_id: EntityId,
@@ -1154,13 +1154,13 @@ pub enum Command<'a> {
     // World APIs
     /// Has extension to get block with NBT data. Requires a world setting to be set.
     WorldGetBlocksWithData {
-        coords_1: Vector3<i16>,
-        coords_2: Vector3<i16>,
+        coords_1: Point3<i16>,
+        coords_2: Point3<i16>,
     },
     WorldSpawnParticle {
         particle: RaspberryJamParticle<'a>,
-        coords: Vector3<f64>,
-        direction: Vector3<f64>, // TODO: Unclear how to use this
+        coords: Point3<f64>,
+        direction: Point3<f64>, // TODO: Unclear how to use this
         speed: f64,
         count: i32,
     },
@@ -1182,7 +1182,7 @@ pub enum Command<'a> {
     EntityGetNameAndUUID(EntityId),
     RaspberryJamWorldSpawnEntity {
         entity_type: JavaEntityType,
-        coords: Vector3<f64>,
+        coords: Point3<f64>,
         json_nbt: Option<ApiStr<'a>>,
     },
 
@@ -1331,7 +1331,7 @@ impl<'a> Display for Command<'a> {
                 None => String::new(),
             }
         }
-        fn vector<T: Display, const D: usize>(param: &SVector<T, D>) -> String {
+        fn point<T: Display + Scalar, const D: usize>(param: &Point<T, D>) -> String {
             param
                 .iter()
                 .map(|v| v.to_string())
@@ -1348,7 +1348,7 @@ impl<'a> Display for Command<'a> {
                 writeln!(f, "camera.mode.setNormal({})", optional(target, false))
             }
             Self::CameraSetPos(pos) => {
-                writeln!(f, "camera.setPos({})", vector(pos))
+                writeln!(f, "camera.setPos({})", point(pos))
             }
             Self::CameraModeSetThirdPerson { target } => {
                 writeln!(f, "camera.mode.setThirdPerson({})", optional(target, false))
@@ -1363,10 +1363,10 @@ impl<'a> Display for Command<'a> {
                 writeln!(f, "entity.getTile({entity_id})")
             }
             Self::EntitySetPos(entity_id, pos) => {
-                writeln!(f, "entity.setPos({entity_id},{})", vector(pos))
+                writeln!(f, "entity.setPos({entity_id},{})", point(pos))
             }
             Self::EntitySetTile(entity_id, tile) => {
-                writeln!(f, "entity.setTile({entity_id},{})", vector(tile))
+                writeln!(f, "entity.setTile({entity_id},{})", point(tile))
             }
             Self::PlayerGetPos => {
                 writeln!(f, "player.getPos()")
@@ -1375,10 +1375,10 @@ impl<'a> Display for Command<'a> {
                 writeln!(f, "player.getTile()")
             }
             Self::PlayerSetPos(pos) => {
-                writeln!(f, "player.setPos({})", vector(pos))
+                writeln!(f, "player.setPos({})", point(pos))
             }
             Self::PlayerSetTile(tile) => {
-                writeln!(f, "player.setTile({})", vector(tile))
+                writeln!(f, "player.setTile({})", point(tile))
             }
             Self::PlayerSetting { key, value } => {
                 writeln!(f, "player.setting({key},{})", *value as i32)
@@ -1390,10 +1390,10 @@ impl<'a> Display for Command<'a> {
                 writeln!(f, "world.checkpoint.save()")
             }
             Self::WorldGetBlock(pos) => {
-                writeln!(f, "world.getBlock({})", vector(pos))
+                writeln!(f, "world.getBlock({})", point(pos))
             }
             Self::WorldGetBlocks(pos_1, pos_2) => {
-                writeln!(f, "world.getBlocks({},{})", vector(pos_1), vector(pos_2))
+                writeln!(f, "world.getBlocks({},{})", point(pos_1), point(pos_2))
             }
             Self::WorldGetPlayerId(name) => {
                 writeln!(f, "world.getPlayerId({})", optional(name, false))
@@ -1408,10 +1408,10 @@ impl<'a> Display for Command<'a> {
                 writeln!(f, "world.removeEntities({})", optional(entity_type, false))
             }
             Self::WorldGetBlockWithData(pos) => {
-                writeln!(f, "world.getBlockWithData({})", vector(pos))
+                writeln!(f, "world.getBlockWithData({})", point(pos))
             }
             Self::WorldGetHeight(pos) => {
-                writeln!(f, "world.getHeight({})", vector(pos))
+                writeln!(f, "world.getHeight({})", point(pos))
             }
             Self::WorldGetPlayerIds => {
                 writeln!(f, "world.getPlayerIds()")
@@ -1425,7 +1425,7 @@ impl<'a> Display for Command<'a> {
                 writeln!(
                     f,
                     "world.setBlock({},{block},{data}{})",
-                    vector(coords),
+                    point(coords),
                     optional(json_nbt, true)
                 )
             }
@@ -1439,8 +1439,8 @@ impl<'a> Display for Command<'a> {
                 writeln!(
                     f,
                     "world.setBlocks({},{},{block},{data}{})",
-                    vector(coords_1),
-                    vector(coords_2),
+                    point(coords_1),
+                    point(coords_2),
                     optional(json_nbt, true)
                 )
             }
@@ -1456,7 +1456,7 @@ impl<'a> Display for Command<'a> {
                 writeln!(
                     f,
                     "world.setSign({},{block},{data},{})",
-                    vector(coords),
+                    point(coords),
                     lines
                         .iter()
                         .map(|line| line.to_string())
@@ -1468,7 +1468,7 @@ impl<'a> Display for Command<'a> {
                 coords,
                 entity_type,
             } => {
-                writeln!(f, "world.spawnEntity({},{entity_type})", vector(coords))
+                writeln!(f, "world.spawnEntity({},{entity_type})", point(coords))
             }
             Self::WorldGetEntityTypes => {
                 writeln!(f, "world.getEntityTypes()")
@@ -1480,7 +1480,7 @@ impl<'a> Display for Command<'a> {
                 writeln!(f, "entity.getDirection({entity_id})")
             }
             Self::EntitySetDirection(entity_id, direction) => {
-                writeln!(f, "entity.setDirection({entity_id},{})", vector(direction))
+                writeln!(f, "entity.setDirection({entity_id},{})", point(direction))
             }
             Self::EntityGetPitch(entity_id) => {
                 writeln!(f, "entity.getPitch({entity_id})")
@@ -1532,13 +1532,13 @@ impl<'a> Display for Command<'a> {
                 writeln!(f, "player.getAbsPos()")
             }
             Self::PlayerSetAbsPos(pos) => {
-                writeln!(f, "player.setAbsPos({})", vector(pos))
+                writeln!(f, "player.setAbsPos({})", point(pos))
             }
             Self::PlayerGetDirection => {
                 writeln!(f, "player.getDirection()")
             }
             Self::PlayerSetDirection(direction) => {
-                writeln!(f, "player.setDirection({})", vector(direction))
+                writeln!(f, "player.setDirection({})", point(direction))
             }
             Self::PlayerGetRotation => {
                 writeln!(f, "player.getRotation()")
@@ -1659,7 +1659,7 @@ impl<'a> Display for Command<'a> {
                 writeln!(f, "custom.username.all()")
             }
             Self::CustomWorldParticle { particle, coords } => {
-                writeln!(f, "custom.world.particle({particle},{})", vector(coords))
+                writeln!(f, "custom.world.particle({particle},{})", point(coords))
             }
             Self::CustomWorldDir => {
                 writeln!(f, "custom.world.dir()")
@@ -1692,9 +1692,9 @@ impl<'a> Display for Command<'a> {
                     f,
                     "custom.entity.spawn({},{},{},{},{})",
                     entity_type.0,
-                    vector(coords),
+                    point(coords),
                     health,
-                    vector(direction),
+                    point(direction),
                     entity_type.1
                 )
             }
@@ -1720,8 +1720,8 @@ impl<'a> Display for Command<'a> {
                 writeln!(
                     f,
                     "world.getBlocksWithData({},{})",
-                    vector(coords_1),
-                    vector(coords_2)
+                    point(coords_1),
+                    point(coords_2)
                 )
             }
             Self::BlockGetLightLevel { tile: block } => {
@@ -1747,7 +1747,7 @@ impl<'a> Display for Command<'a> {
                 writeln!(
                     f,
                     "world.spawnEntity({entity_type},{}{})",
-                    vector(coords),
+                    point(coords),
                     optional(json_nbt, true)
                 )
             }
@@ -1785,8 +1785,8 @@ impl<'a> Display for Command<'a> {
                 writeln!(
                     f,
                     "world.spawnParticle({particle},{},{},{},{})",
-                    vector(coords),
-                    vector(direction),
+                    point(coords),
+                    point(direction),
                     speed,
                     count
                 )
@@ -2177,37 +2177,37 @@ mod tests {
     }
 
     #[test]
-    fn command_vector_large_values() {
-        let vec = Vector3::new(1e100, 2.0, 3.0);
+    fn command_point_large_values() {
+        let vec = Point3::new(1e100, 2.0, 3.0);
         let command = Command::PlayerSetPos(vec);
         assert_eq!(command.to_string(), "player.setPos(10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000,2,3)\n");
     }
 
     #[test]
-    fn command_vector_serializes_f64_int() {
-        let vec = Vector3::new(1.0, 2.0, 3.0);
+    fn command_point_serializes_f64_int() {
+        let vec = Point3::new(1.0, 2.0, 3.0);
         let command = Command::PlayerSetPos(vec);
         assert_eq!(command.to_string(), "player.setPos(1,2,3)\n");
     }
 
     #[test]
-    fn command_vector_serializes_f64_real() {
-        let vec = Vector3::new(1.5, 2.5, 3.5);
+    fn command_point_serializes_f64_real() {
+        let vec = Point3::new(1.5, 2.5, 3.5);
         let command = Command::PlayerSetPos(vec);
         assert_eq!(command.to_string(), "player.setPos(1.5,2.5,3.5)\n");
     }
 
     #[test]
-    fn command_vector_serializes_i16() {
-        let vec = Vector3::new(1, 2, 3);
+    fn command_point_serializes_i16() {
+        let vec = Point3::new(1, 2, 3);
         let command = Command::WorldGetBlock(vec);
         assert_eq!(command.to_string(), "world.getBlock(1,2,3)\n");
     }
 
     #[test]
-    fn command_vector_serializes_i16_range() {
-        let vec_1 = Vector3::new(1, 2, 3);
-        let vec_2 = Vector3::new(4, 5, 6);
+    fn command_point_serializes_i16_range() {
+        let vec_1 = Point3::new(1, 2, 3);
+        let vec_2 = Point3::new(4, 5, 6);
         let command = Command::WorldGetBlocks(vec_1, vec_2);
         assert_eq!(command.to_string(), "world.getBlocks(1,2,3,4,5,6)\n");
     }

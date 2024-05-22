@@ -1,10 +1,9 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 #![warn(rust_2018_idioms, /* missing_docs, */ clippy::missing_const_for_fn)]
 
-use std::future::Future;
 use std::num::{ParseFloatError, ParseIntError};
 use std::str::FromStr;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use block::{BlockFace, InvalidBlockFaceError, ParseBlockError};
 use connection::queued::QueuedConnection;
@@ -14,7 +13,7 @@ use connection::{
 };
 use entity::{ClientPlayer, Player};
 use futures_core::Stream;
-use nalgebra::{DMatrix, Vector2, Vector3};
+use nalgebra::{Point2, Point3};
 use snafu::{OptionExt, Snafu};
 
 pub mod block;
@@ -44,7 +43,7 @@ pub enum WorldError {
     InvalidBlockFace { source: InvalidBlockFaceError },
 }
 
-pub(crate) type Result<T = (), E = WorldError> = std::result::Result<T, E>;
+pub type Result<T = (), E = WorldError> = std::result::Result<T, E>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct World<T: Protocol> {
@@ -89,7 +88,7 @@ impl<T: Protocol> World<T> {
     }
 
     /// Gets the type of the block at the given coordinates.
-    pub async fn get_tile(&self, coords: Vector3<i16>) -> Result<Tile> {
+    pub async fn get_tile(&self, coords: Point3<i16>) -> Result<Tile> {
         let ty = self.connection.send(Command::WorldGetBlock(coords)).await?;
         Ok(Tile(ty.parse()?))
     }
@@ -99,9 +98,9 @@ impl<T: Protocol> World<T> {
     /// Raspberry Juice server only!
     pub async fn get_tiles(
         &self,
-        coords_1: Vector3<i16>,
-        coords_2: Vector3<i16>,
-    ) -> Result<Vec<(Tile, Vector3<i16>)>> {
+        coords_1: Point3<i16>,
+        coords_2: Point3<i16>,
+    ) -> Result<Vec<(Tile, Point3<i16>)>> {
         let blocks = self
             .connection
             .send(Command::WorldGetBlocks(coords_1, coords_2))
@@ -121,7 +120,7 @@ impl<T: Protocol> World<T> {
                 let x = (idx / y_len) % x_len;
                 let y = idx % y_len;
 
-                Ok::<_, WorldError>((tile, Vector3::new(x, y, z)))
+                Ok::<_, WorldError>((tile, Point3::new(x, y, z)))
             })
             .collect::<Result<Vec<_>, _>>()?;
 
@@ -129,7 +128,7 @@ impl<T: Protocol> World<T> {
     }
 
     /// Gets the type and metadata of the block at the given coordinates.
-    pub async fn get_block(&self, coords: Vector3<i16>) -> Result<Block> {
+    pub async fn get_block(&self, coords: Point3<i16>) -> Result<Block> {
         self.connection
             .send(Command::WorldGetBlockWithData(coords))
             .await?
@@ -139,7 +138,7 @@ impl<T: Protocol> World<T> {
     /// Sets the block at the given coordinates to the specified type.
     ///
     /// This method is shorthand for [`Self::set_block`] with `Block::new(tile, None)`.
-    pub async fn set_tile(&mut self, coords: Vector3<i16>, tile: Tile) -> Result<()> {
+    pub async fn set_tile(&mut self, coords: Point3<i16>, tile: Tile) -> Result<()> {
         self.connection
             .send(Command::WorldSetBlock {
                 coords,
@@ -156,8 +155,8 @@ impl<T: Protocol> World<T> {
     /// This method is shorthand for [`Self::set_blocks`] with `Block::new(tile, None)`.
     pub async fn set_tiles(
         &mut self,
-        coords_1: Vector3<i16>,
-        coords_2: Vector3<i16>,
+        coords_1: Point3<i16>,
+        coords_2: Point3<i16>,
         tile: Tile,
     ) -> Result<()> {
         self.connection
@@ -175,8 +174,8 @@ impl<T: Protocol> World<T> {
     /// Updates the blocks inclusively contained in the given cuboid to have the specified type and metadata.
     pub async fn set_blocks(
         &mut self,
-        coords_1: Vector3<i16>,
-        coords_2: Vector3<i16>,
+        coords_1: Point3<i16>,
+        coords_2: Point3<i16>,
         block: &Block,
     ) -> Result<()> {
         let nbt = block.json_nbt();
@@ -193,7 +192,7 @@ impl<T: Protocol> World<T> {
     }
 
     /// Updates the block at the given coordinates to have the specified type and metadata.
-    pub async fn set_block(&mut self, coords: Vector3<i16>, block: &Block) -> Result<()> {
+    pub async fn set_block(&mut self, coords: Point3<i16>, block: &Block) -> Result<()> {
         let nbt = block.json_nbt();
         self.connection
             .send(Command::WorldSetBlock {
@@ -207,7 +206,7 @@ impl<T: Protocol> World<T> {
     }
 
     /// Finds the Y-coordinate of the highest non-air block at the given X and Z coordinates.
-    pub async fn get_height_at(&self, coords: Vector2<i16>) -> Result<i16> {
+    pub async fn get_height_at(&self, coords: Point2<i16>) -> Result<i16> {
         let y = self
             .connection
             .send(Command::WorldGetHeight(coords))
@@ -283,7 +282,7 @@ impl<T: Protocol> World<T> {
             .map(|hit| {
                 let mut hit = hit.split(',').map(i16::from_str);
                 Ok::<_, WorldError>(BlockHit {
-                    coords: Vector3::new(
+                    coords: Point3::new(
                         hit.next().context(NotEnoughPartsSnafu)??,
                         hit.next().context(NotEnoughPartsSnafu)??,
                         hit.next().context(NotEnoughPartsSnafu)??,
@@ -324,16 +323,41 @@ impl<T: Protocol> World<T> {
             }
         }
     }
+
+    /// Disconnection from the world after ensuring all pending events are sent.
+    pub async fn disconnect(self) -> Result<()> {
+        self.connection.close().await?;
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct BlockHit {
     /// The coordinates of the block that was hit.
-    pub coords: Vector3<i16>,
+    pub coords: Point3<i16>,
     /// The face of the block that was hit.
     pub face: BlockFace,
     /// The ID of the player that hit the block.
     pub player_id: EntityId,
+}
+
+/// Converts the floating-point position coordinates of an entity to integer tile coordinates.
+///
+/// # Example
+///
+/// ```
+/// # use mcpi::pos_to_tile;
+/// # use nalgebra::Point3;
+/// let pos = Point3::new(1.3, 2.8, 3.4);
+/// let tile = pos_to_tile(pos);
+/// assert_eq!(tile, Point3::new(1, 2, 3));
+/// ``````
+pub fn pos_to_tile(pos: &Point3<f64>) -> Point3<i16> {
+    Point3::new(
+        pos.x.floor() as i16,
+        pos.y.floor() as i16,
+        pos.z.floor() as i16,
+    )
 }
 
 // #[cfg(test)]

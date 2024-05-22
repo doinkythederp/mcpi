@@ -1,5 +1,5 @@
 use mcpi::connection::{Command, ConnectOptions, ServerConnection, Tile, TileData};
-use nalgebra::Vector3;
+use nalgebra::Point3;
 
 #[tokio::main]
 pub async fn main() {
@@ -16,8 +16,8 @@ pub async fn main() {
     // Set all the blocks at once
     connection
         .send(Command::WorldSetBlocks {
-            coords_1: Vector3::new(0, 25, 0),
-            coords_2: Vector3::new(25, 50, 25),
+            coords_1: Point3::new(0, 25, 0),
+            coords_2: Point3::new(25, 50, 25),
             tile: Tile::SANDSTONE,
             data: TileData::default(),
             json_nbt: None,

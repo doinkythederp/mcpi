@@ -1,4 +1,4 @@
-use nalgebra::Vector3;
+use nalgebra::Point3;
 
 use crate::connection::{Command, EntityId, Protocol};
 use crate::Result;
@@ -58,7 +58,7 @@ impl<T: Protocol> Camera<T> {
         Ok(())
     }
 
-    pub async fn set_position(&mut self, position: Vector3<f64>) -> Result {
+    pub async fn set_position(&mut self, position: Point3<f64>) -> Result {
         self.connection
             .send(Command::CameraSetPos(position))
             .await?;

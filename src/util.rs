@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
-use nalgebra::{SVector, Scalar};
+use nalgebra::{Point, Scalar};
 
 use crate::{Result, WorldError};
 
-pub fn parse_vector<T, E, const D: usize>(s: &str) -> Result<nalgebra::SVector<T, D>>
+pub fn parse_point<T, E, const D: usize>(s: &str) -> Result<nalgebra::Point<T, D>>
 where
     T: std::str::FromStr<Err = E> + Scalar,
     WorldError: From<E>,
@@ -14,7 +14,7 @@ where
         .splitn(D, ',')
         .map(|s| s.parse())
         .collect::<Result<Vec<T>, E>>()?;
-    Ok(SVector::<T, D>::from_vec(parts))
+    Ok(Point::<T, D>::from_slice(&parts))
 }
 
 // Port of Minecraft Pi: Reborn's character handling to Rust
