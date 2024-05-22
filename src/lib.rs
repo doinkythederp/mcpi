@@ -349,7 +349,7 @@ pub struct BlockHit {
 /// # use mcpi::pos_to_tile;
 /// # use nalgebra::Point3;
 /// let pos = Point3::new(1.3, 2.8, 3.4);
-/// let tile = pos_to_tile(pos);
+/// let tile = pos_to_tile(&pos);
 /// assert_eq!(tile, Point3::new(1, 2, 3));
 /// ``````
 pub fn pos_to_tile(pos: &Point3<f64>) -> Point3<i16> {
