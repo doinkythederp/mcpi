@@ -90,6 +90,8 @@ impl Tile {
     pub const LIT_FURNACE: Self = Self(62);
     pub const SIGN: Self = Self(63);
     pub const WOODEN_DOOR: Self = Self(64);
+    /// This tile is invisible by default and requires TileData to be made
+    /// visible.
     pub const LADDER: Self = Self(65);
     pub const COBBLESTONE_STAIRS: Self = Self(67);
     pub const WALL_SIGN: Self = Self(68);
@@ -105,6 +107,7 @@ impl Tile {
     pub const FENCE: Self = Self(85);
     pub const NETHERRACK: Self = Self(87);
     pub const GLOWSTONE: Self = Self(89);
+    #[doc(alias = "BARRIER")]
     pub const INVISIBLE_BEDROCK: Self = Self(95);
     pub const TRAPDOOR: Self = Self(96);
     pub const STONE_BRICKS: Self = Self(98);
@@ -125,8 +128,9 @@ impl Tile {
     pub const UPDATE: Self = Self(248);
     pub const ATEUPD: Self = Self(249);
     pub const GRASS_BLOCK_CARRIED: Self = Self(253);
+    /// This block is a darker version of [`LEAVES`].
     pub const LEAVES_CARRIED: Self = Self(254);
-    // TODO: what is this?
+    /// This block is a duplicate of [`STONE`] with a different ID.
     pub const STONE_1: Self = Self(255);
 
     /// Returns a helper struct that can be converted to a human-readable version of the block name.
@@ -363,6 +367,15 @@ impl TileData {
     pub const GROWTH_STAGE_5: Self = Self(5);
     pub const GROWTH_STAGE_6: Self = Self(6);
     pub const GROWTH_STAGE_7: Self = Self(7);
+    // WHEAT only
+    pub const GROWTH_STAGE_LEVER: Self = Self(8);
+    pub const GROWTH_STAGE_DOOR: Self = Self(9);
+    pub const GROWTH_STAGE_IRON_DOOR: Self = Self(10);
+    pub const GROWTH_STAGE_REDSTONE_TORCH: Self = Self(11);
+    pub const GROWTH_STAGE_MOSSY_STONE_BRICKS: Self = Self(12);
+    pub const GROWTH_STAGE_CRACKED_STONE_BRICKS: Self = Self(13);
+    pub const GROWTH_STAGE_PUMPKIN: Self = Self(14);
+    pub const GROWTH_STAGE_NETHERRACK: Self = Self(15);
     // SIGN
     pub const SIGN_Z_POSITIVE: Self = Self(0);
     pub const SIGN_Z_POSITIVE_POSITIVE_X_NEGATIVE: Self = Self(1);
@@ -415,10 +428,25 @@ impl TileData {
     // FARMLAND
     pub const FARMLAND_DRY: Self = Self(0);
     pub const FARMLAND_WET: Self = Self(1);
+    // LADDER
+    pub const LADDER_INVISIBLE_Z_POSITIVE: Self = Self(0);
+    pub const LADDER_Z_POSITIVE: Self = Self(2);
+    pub const LADDER_Z_NEGATIVE: Self = Self(3);
+    pub const LADDER_X_POSITIVE: Self = Self(4);
+    pub const LADDER_X_NEGATIVE: Self = Self(5);
+    // WALL_SIGN
+    pub const WALL_SIGN_Z_POSITIVE: Self = Self(0);
+    pub const WALL_SIGN_Z_NEGATIVE: Self = Self(2);
+    pub const WALL_SIGN_X_NEGATIVE: Self = Self(4);
+    pub const WALL_SIGN_X_POSITIVE: Self = Self(5);
     // NETHER_REACTOR_CORE
     pub const NETHER_REACTOR_CORE_NORMAL: Self = Self(0);
     pub const NETHER_REACTOR_CORE_ACTIVE: Self = Self(1);
     pub const NETHER_REACTOR_CORE_BURNED: Self = Self(2);
+    // LEAVES_CARRIED
+    pub const LEAVES_CARRIED_DARK_OAK: Self = Self(0);
+    pub const LEAVES_CARRIED_DARK_SPRUCE: Self = Self(1);
+    pub const LEAVES_CARRIED_DARK_BIRCH: Self = Self(2);
 }
 
 impl Deref for TileData {
