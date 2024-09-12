@@ -2,7 +2,8 @@ use snafu::OptionExt;
 use tokio::sync::{mpsc, oneshot};
 
 use super::{
-    Command, ConnectOptions, ConnectionError, Protocol, QueueFullSnafu, SendSnafu, ServerConnection,
+    ConnectOptions, ConnectionError, Protocol, QueueFullSnafu, SendSnafu, SerializableCommand,
+    ServerConnection,
 };
 
 enum QueueItem {
@@ -86,11 +87,14 @@ impl Protocol for QueuedConnection {
             .context(QueueFullSnafu)
     }
 
-    async fn send(&self, command: Command<'_>) -> Result<String, ConnectionError> {
+    async fn send(
+        &self,
+        command: impl SerializableCommand + Send,
+    ) -> Result<String, ConnectionError> {
         let permit = self.channel.reserve().await.ok().context(SendSnafu)?;
         let (tx, rx) = oneshot::channel();
         let request = QueueItem::Request {
-            request: Vec::from(&command),
+            request: command.to_command_bytes(),
             has_response: command.has_response(),
             response: tx,
         };

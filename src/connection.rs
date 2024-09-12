@@ -945,6 +945,17 @@ impl Display for EntityId {
 
 // MARK: Commands
 
+/// Values implementing this trait are commands that can be serialized and sent to the Minecraft
+/// game server.
+pub trait SerializableCommand {
+    // Serializes the specified command into bytes that can be sent to the game server.
+    #[must_use]
+    fn to_command_bytes(&self) -> Vec<u8>;
+    /// Evaluates whether the specified command should wait for a response from the game server.
+    #[must_use]
+    fn has_response(&self) -> bool;
+}
+
 /// A command that can be sent to the game server to perform an action or query information.
 ///
 /// Includes all commands supported by the vanilla Minecraft: Pi Edition game, as well as
@@ -1237,124 +1248,8 @@ pub enum Command<'a> {
     CameraSetDistance(f32),
 }
 
-impl Command<'_> {
-    #[must_use]
-    pub const fn has_response(&self) -> bool {
-        match self {
-            Self::CameraModeSetFixed
-            | Self::CameraModeSetFollow { .. }
-            | Self::CameraModeSetNormal { .. }
-            | Self::CameraModeSetThirdPerson { .. }
-            | Self::CameraSetPos(_)
-            | Self::ChatPost(_)
-            | Self::EntitySetPos(_, _)
-            | Self::EntitySetTile(_, _)
-            | Self::PlayerSetPos(_)
-            | Self::PlayerSetTile(_)
-            | Self::PlayerSetting { .. }
-            | Self::WorldCheckpointRestore
-            | Self::WorldCheckpointSave
-            | Self::WorldSetBlock { .. }
-            | Self::WorldSetBlocks { .. }
-            | Self::WorldSetting { .. }
-            | Self::WorldSetSign { .. }
-            | Self::EntitySetDirection(..)
-            | Self::EntitySetRotation(..)
-            | Self::EntitySetPitch(..)
-            | Self::EntityEventsClear(..)
-            | Self::PlayerSetAbsPos(..)
-            | Self::PlayerSetDirection(..)
-            | Self::PlayerSetPitch(..)
-            | Self::PlayerEventsClear
-            | Self::EventsClear
-            | Self::CustomLogDebug(..)
-            | Self::CustomLogInfo(..)
-            | Self::CustomLogWarn(..)
-            | Self::CustomLogErr(..)
-            | Self::CustomInventoryUnsafeGive { .. }
-            | Self::CustomInventoryGive { .. }
-            | Self::CustomOverrideReset
-            | Self::CustomOverride { .. }
-            | Self::CustomPostClient(..)
-            | Self::CustomPostNoPrefix(..)
-            | Self::CustomKeyPress(..)
-            | Self::CustomKeyRelease(..)
-            | Self::CustomWorldParticle { .. }
-            | Self::CustomPlayerSetHealth(..)
-            | Self::CustomPlayerCloseGUI
-            | Self::CustomEntitySetAge { .. }
-            | Self::CustomEntitySetSheepColor { .. }
-            | Self::PlayerSetRotation(..)
-            | Self::WorldSpawnParticle { .. }
-            | Self::BlockSetLightLevel { .. }
-            | Self::EntitySetDimension { .. }
-            | Self::PlayerSetDimension { .. }
-            | Self::CameraSetFollow { .. }
-            | Self::CameraSetNormal { .. }
-            | Self::CameraSetThirdPerson { .. }
-            | Self::CameraSetDebug
-            | Self::CameraSetDistance(..) => false,
-
-            Self::EntityGetPos(_)
-            | Self::EntityGetTile(_)
-            | Self::PlayerGetPos
-            | Self::PlayerGetTile
-            | Self::WorldGetBlock(_)
-            | Self::WorldGetBlocks(_, _)
-            | Self::WorldGetBlockWithData(_)
-            | Self::WorldGetHeight(_)
-            | Self::WorldGetPlayerIds
-            | Self::RaspberryJuiceWorldSpawnEntity { .. }
-            | Self::RaspberryJamWorldSpawnEntity { .. }
-            | Self::WorldGetEntities(..)
-            | Self::WorldGetPlayerId(..)
-            | Self::WorldRemoveEntities(..)
-            | Self::WorldRemoveEntity(..)
-            | Self::WorldGetEntityTypes
-            | Self::EntityGetName(..)
-            | Self::EntityGetDirection(..)
-            | Self::EntityGetPitch(..)
-            | Self::EntityGetRotation(..)
-            | Self::EntityEventsBlockHits(..)
-            | Self::EntityEventsChatPosts(..)
-            | Self::EntityEventsProjectileHits(..)
-            | Self::EntityGetEntities { .. }
-            | Self::EntityRemoveEntities { .. }
-            | Self::PlayerGetAbsPos
-            | Self::PlayerGetDirection
-            | Self::PlayerGetRotation
-            | Self::PlayerGetPitch
-            | Self::PlayerGetEntities { .. }
-            | Self::PlayerRemoveEntities { .. }
-            | Self::PlayerEventsBlockHits
-            | Self::PlayerEventsChatPosts
-            | Self::PlayerEventsProjectileHits
-            | Self::EventsChatPosts
-            | Self::EventsProjectileHits
-            | Self::EventsBlockHits
-            | Self::CustomInventoryGetSlot
-            | Self::CustomUsernameAll
-            | Self::CustomWorldDir
-            | Self::CustomWorldName
-            | Self::CustomWorldServername
-            | Self::CustomPlayerGetHealth
-            | Self::CustomPlayerGetGamemode
-            | Self::CustomEntitySpawn { .. }
-            | Self::EventsChatSize
-            | Self::CustomRebornVersion
-            | Self::CustomRebornFeature(..)
-            | Self::EntityGetAllEntities
-            | Self::WorldGetBlocksWithData { .. }
-            | Self::BlockGetLightLevel { .. }
-            | Self::EntityGetNameAndUUID(..)
-            | Self::PlayerGetNameAndUUID
-            | Self::CameraGetEntityId => true,
-        }
-    }
-}
-
-impl<'a> From<&Command<'a>> for Vec<u8> {
-    fn from(value: &Command<'a>) -> Vec<u8> {
+impl SerializableCommand for Command<'_> {
+    fn to_command_bytes(&self) -> Vec<u8> {
         let mut f = Vec::new();
 
         fn optional<T: Display>(param: &Option<T>, comma: bool) -> String {
@@ -1371,7 +1266,7 @@ impl<'a> From<&Command<'a>> for Vec<u8> {
                 .join(",")
         }
 
-        match value {
+        match self {
             Command::CameraModeSetFixed => writeln!(f, "camera.mode.setFixed()").unwrap(),
             Command::CameraModeSetFollow { target } => {
                 writeln!(f, "camera.mode.setFollow({})", optional(target, false)).unwrap();
@@ -1842,6 +1737,125 @@ impl<'a> From<&Command<'a>> for Vec<u8> {
 
         f
     }
+
+    fn has_response(&self) -> bool {
+        match self {
+            Self::CameraModeSetFixed
+            | Self::CameraModeSetFollow { .. }
+            | Self::CameraModeSetNormal { .. }
+            | Self::CameraModeSetThirdPerson { .. }
+            | Self::CameraSetPos(_)
+            | Self::ChatPost(_)
+            | Self::EntitySetPos(_, _)
+            | Self::EntitySetTile(_, _)
+            | Self::PlayerSetPos(_)
+            | Self::PlayerSetTile(_)
+            | Self::PlayerSetting { .. }
+            | Self::WorldCheckpointRestore
+            | Self::WorldCheckpointSave
+            | Self::WorldSetBlock { .. }
+            | Self::WorldSetBlocks { .. }
+            | Self::WorldSetting { .. }
+            | Self::WorldSetSign { .. }
+            | Self::EntitySetDirection(..)
+            | Self::EntitySetRotation(..)
+            | Self::EntitySetPitch(..)
+            | Self::EntityEventsClear(..)
+            | Self::PlayerSetAbsPos(..)
+            | Self::PlayerSetDirection(..)
+            | Self::PlayerSetPitch(..)
+            | Self::PlayerEventsClear
+            | Self::EventsClear
+            | Self::CustomLogDebug(..)
+            | Self::CustomLogInfo(..)
+            | Self::CustomLogWarn(..)
+            | Self::CustomLogErr(..)
+            | Self::CustomInventoryUnsafeGive { .. }
+            | Self::CustomInventoryGive { .. }
+            | Self::CustomOverrideReset
+            | Self::CustomOverride { .. }
+            | Self::CustomPostClient(..)
+            | Self::CustomPostNoPrefix(..)
+            | Self::CustomKeyPress(..)
+            | Self::CustomKeyRelease(..)
+            | Self::CustomWorldParticle { .. }
+            | Self::CustomPlayerSetHealth(..)
+            | Self::CustomPlayerCloseGUI
+            | Self::CustomEntitySetAge { .. }
+            | Self::CustomEntitySetSheepColor { .. }
+            | Self::PlayerSetRotation(..)
+            | Self::WorldSpawnParticle { .. }
+            | Self::BlockSetLightLevel { .. }
+            | Self::EntitySetDimension { .. }
+            | Self::PlayerSetDimension { .. }
+            | Self::CameraSetFollow { .. }
+            | Self::CameraSetNormal { .. }
+            | Self::CameraSetThirdPerson { .. }
+            | Self::CameraSetDebug
+            | Self::CameraSetDistance(..) => false,
+
+            Self::EntityGetPos(_)
+            | Self::EntityGetTile(_)
+            | Self::PlayerGetPos
+            | Self::PlayerGetTile
+            | Self::WorldGetBlock(_)
+            | Self::WorldGetBlocks(_, _)
+            | Self::WorldGetBlockWithData(_)
+            | Self::WorldGetHeight(_)
+            | Self::WorldGetPlayerIds
+            | Self::RaspberryJuiceWorldSpawnEntity { .. }
+            | Self::RaspberryJamWorldSpawnEntity { .. }
+            | Self::WorldGetEntities(..)
+            | Self::WorldGetPlayerId(..)
+            | Self::WorldRemoveEntities(..)
+            | Self::WorldRemoveEntity(..)
+            | Self::WorldGetEntityTypes
+            | Self::EntityGetName(..)
+            | Self::EntityGetDirection(..)
+            | Self::EntityGetPitch(..)
+            | Self::EntityGetRotation(..)
+            | Self::EntityEventsBlockHits(..)
+            | Self::EntityEventsChatPosts(..)
+            | Self::EntityEventsProjectileHits(..)
+            | Self::EntityGetEntities { .. }
+            | Self::EntityRemoveEntities { .. }
+            | Self::PlayerGetAbsPos
+            | Self::PlayerGetDirection
+            | Self::PlayerGetRotation
+            | Self::PlayerGetPitch
+            | Self::PlayerGetEntities { .. }
+            | Self::PlayerRemoveEntities { .. }
+            | Self::PlayerEventsBlockHits
+            | Self::PlayerEventsChatPosts
+            | Self::PlayerEventsProjectileHits
+            | Self::EventsChatPosts
+            | Self::EventsProjectileHits
+            | Self::EventsBlockHits
+            | Self::CustomInventoryGetSlot
+            | Self::CustomUsernameAll
+            | Self::CustomWorldDir
+            | Self::CustomWorldName
+            | Self::CustomWorldServername
+            | Self::CustomPlayerGetHealth
+            | Self::CustomPlayerGetGamemode
+            | Self::CustomEntitySpawn { .. }
+            | Self::EventsChatSize
+            | Self::CustomRebornVersion
+            | Self::CustomRebornFeature(..)
+            | Self::EntityGetAllEntities
+            | Self::WorldGetBlocksWithData { .. }
+            | Self::BlockGetLightLevel { .. }
+            | Self::EntityGetNameAndUUID(..)
+            | Self::PlayerGetNameAndUUID
+            | Self::CameraGetEntityId => true,
+        }
+    }
+}
+
+impl From<&Command<'_>> for Vec<u8> {
+    fn from(value: &Command<'_>) -> Self {
+        value.to_command_bytes()
+    }
 }
 
 /// An error that occurs when an ApiString is created that contains a LF (line feed) character.
@@ -2063,7 +2077,7 @@ pub trait Protocol: Clone + Debug {
     fn set_options(&mut self, options: ConnectOptions) -> Result<(), ConnectionError>;
     /// Sends a command to the server and returns its response.
     ///
-    /// If the command does not expect a response (as determined by [`Command::has_response`])
+    /// If the command does not expect a response (as determined by [`SerializableCommand::has_response`])
     /// and the [`ConnectOptions::always_wait_for_response`] option is not enabled,
     /// an empty string is returned without waiting for the server to respond.
     ///
@@ -2072,7 +2086,7 @@ pub trait Protocol: Clone + Debug {
     /// Server responses are returned without processing or parsing.
     fn send(
         &self,
-        command: Command<'_>,
+        command: impl SerializableCommand + Send,
     ) -> impl Future<Output = Result<String, ConnectionError>> + Send;
 
     /// Flushes the connection and disconnects.
@@ -2125,8 +2139,11 @@ impl ServerConnection {
         Ok(())
     }
 
-    pub async fn send(&mut self, command: Command<'_>) -> Result<String, ConnectionError> {
-        self.send_raw(&Vec::from(&command), command.has_response())
+    pub async fn send(
+        &mut self,
+        command: impl SerializableCommand,
+    ) -> Result<String, ConnectionError> {
+        self.send_raw(&command.to_command_bytes(), command.has_response())
             .await
     }
 
