@@ -90,7 +90,7 @@ impl Protocol for QueuedConnection {
         let permit = self.channel.reserve().await.ok().context(SendSnafu)?;
         let (tx, rx) = oneshot::channel();
         let request = QueueItem::Request {
-            request: command.to_string().into_bytes(),
+            request: Vec::from(&command),
             has_response: command.has_response(),
             response: tx,
         };

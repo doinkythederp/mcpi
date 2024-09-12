@@ -10,6 +10,7 @@
 use std::borrow::Cow;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::future::Future;
+use std::io::Write;
 use std::ops::Deref;
 use std::str::FromStr;
 use std::time::Duration;
@@ -1352,8 +1353,10 @@ impl Command<'_> {
     }
 }
 
-impl<'a> Display for Command<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<'a> From<&Command<'a>> for Vec<u8> {
+    fn from(value: &Command<'a>) -> Vec<u8> {
+        let mut f = Vec::new();
+
         fn optional<T: Display>(param: &Option<T>, comma: bool) -> String {
             match param {
                 Some(value) => format!("{}{value}", comma.then_some(",").unwrap_or_default()),
@@ -1368,84 +1371,86 @@ impl<'a> Display for Command<'a> {
                 .join(",")
         }
 
-        match self {
-            Self::CameraModeSetFixed => writeln!(f, "camera.mode.setFixed()"),
-            Self::CameraModeSetFollow { target } => {
-                writeln!(f, "camera.mode.setFollow({})", optional(target, false))
+        match value {
+            Command::CameraModeSetFixed => writeln!(f, "camera.mode.setFixed()").unwrap(),
+            Command::CameraModeSetFollow { target } => {
+                writeln!(f, "camera.mode.setFollow({})", optional(target, false)).unwrap();
             }
-            Self::CameraModeSetNormal { target } => {
-                writeln!(f, "camera.mode.setNormal({})", optional(target, false))
+            Command::CameraModeSetNormal { target } => {
+                writeln!(f, "camera.mode.setNormal({})", optional(target, false)).unwrap();
             }
-            Self::CameraSetPos(pos) => {
-                writeln!(f, "camera.setPos({})", point(pos))
+            Command::CameraSetPos(pos) => {
+                writeln!(f, "camera.setPos({})", point(pos)).unwrap();
             }
-            Self::CameraModeSetThirdPerson { target } => {
-                writeln!(f, "camera.mode.setThirdPerson({})", optional(target, false))
+            Command::CameraModeSetThirdPerson { target } => {
+                writeln!(f, "camera.mode.setThirdPerson({})", optional(target, false)).unwrap();
             }
-            Self::ChatPost(message) => {
-                writeln!(f, "chat.post({message})")
+            Command::ChatPost(message) => {
+                write!(f, "chat.post(").unwrap();
+                Write::write_all(&mut f, message.as_ref()).unwrap();
+                writeln!(f, ")").unwrap();
             }
-            Self::EntityGetPos(entity_id) => {
-                writeln!(f, "entity.getPos({entity_id})")
+            Command::EntityGetPos(entity_id) => {
+                writeln!(f, "entity.getPos({entity_id})").unwrap();
             }
-            Self::EntityGetTile(entity_id) => {
-                writeln!(f, "entity.getTile({entity_id})")
+            Command::EntityGetTile(entity_id) => {
+                writeln!(f, "entity.getTile({entity_id})").unwrap();
             }
-            Self::EntitySetPos(entity_id, pos) => {
-                writeln!(f, "entity.setPos({entity_id},{})", point(pos))
+            Command::EntitySetPos(entity_id, pos) => {
+                writeln!(f, "entity.setPos({entity_id},{})", point(pos)).unwrap();
             }
-            Self::EntitySetTile(entity_id, tile) => {
-                writeln!(f, "entity.setTile({entity_id},{})", point(tile))
+            Command::EntitySetTile(entity_id, tile) => {
+                writeln!(f, "entity.setTile({entity_id},{})", point(tile)).unwrap();
             }
-            Self::PlayerGetPos => {
-                writeln!(f, "player.getPos()")
+            Command::PlayerGetPos => {
+                writeln!(f, "player.getPos()").unwrap();
             }
-            Self::PlayerGetTile => {
-                writeln!(f, "player.getTile()")
+            Command::PlayerGetTile => {
+                writeln!(f, "player.getTile()").unwrap();
             }
-            Self::PlayerSetPos(pos) => {
-                writeln!(f, "player.setPos({})", point(pos))
+            Command::PlayerSetPos(pos) => {
+                writeln!(f, "player.setPos({})", point(pos)).unwrap();
             }
-            Self::PlayerSetTile(tile) => {
-                writeln!(f, "player.setTile({})", point(tile))
+            Command::PlayerSetTile(tile) => {
+                writeln!(f, "player.setTile({})", point(tile)).unwrap();
             }
-            Self::PlayerSetting { key, value } => {
-                writeln!(f, "player.setting({key},{})", *value as i32)
+            Command::PlayerSetting { key, value } => {
+                writeln!(f, "player.setting({key},{})", *value as i32).unwrap();
             }
-            Self::WorldCheckpointRestore => {
-                writeln!(f, "world.checkpoint.restore()")
+            Command::WorldCheckpointRestore => {
+                writeln!(f, "world.checkpoint.restore()").unwrap();
             }
-            Self::WorldCheckpointSave => {
-                writeln!(f, "world.checkpoint.save()")
+            Command::WorldCheckpointSave => {
+                writeln!(f, "world.checkpoint.save()").unwrap();
             }
-            Self::WorldGetBlock(pos) => {
-                writeln!(f, "world.getBlock({})", point(pos))
+            Command::WorldGetBlock(pos) => {
+                writeln!(f, "world.getBlock({})", point(pos)).unwrap();
             }
-            Self::WorldGetBlocks(pos_1, pos_2) => {
-                writeln!(f, "world.getBlocks({},{})", point(pos_1), point(pos_2))
+            Command::WorldGetBlocks(pos_1, pos_2) => {
+                writeln!(f, "world.getBlocks({},{})", point(pos_1), point(pos_2)).unwrap();
             }
-            Self::WorldGetPlayerId(name) => {
-                writeln!(f, "world.getPlayerId({})", optional(name, false))
+            Command::WorldGetPlayerId(name) => {
+                writeln!(f, "world.getPlayerId({})", optional(name, false)).unwrap();
             }
-            Self::WorldGetEntities(entity_type) => {
-                writeln!(f, "world.getEntities({})", optional(entity_type, false))
+            Command::WorldGetEntities(entity_type) => {
+                writeln!(f, "world.getEntities({})", optional(entity_type, false)).unwrap();
             }
-            Self::WorldRemoveEntity(entity_id) => {
-                writeln!(f, "world.removeEntity({entity_id})")
+            Command::WorldRemoveEntity(entity_id) => {
+                writeln!(f, "world.removeEntity({entity_id})").unwrap();
             }
-            Self::WorldRemoveEntities(entity_type) => {
-                writeln!(f, "world.removeEntities({})", optional(entity_type, false))
+            Command::WorldRemoveEntities(entity_type) => {
+                writeln!(f, "world.removeEntities({})", optional(entity_type, false)).unwrap();
             }
-            Self::WorldGetBlockWithData(pos) => {
-                writeln!(f, "world.getBlockWithData({})", point(pos))
+            Command::WorldGetBlockWithData(pos) => {
+                writeln!(f, "world.getBlockWithData({})", point(pos)).unwrap();
             }
-            Self::WorldGetHeight(pos) => {
-                writeln!(f, "world.getHeight({})", point(pos))
+            Command::WorldGetHeight(pos) => {
+                writeln!(f, "world.getHeight({})", point(pos)).unwrap();
             }
-            Self::WorldGetPlayerIds => {
-                writeln!(f, "world.getPlayerIds()")
+            Command::WorldGetPlayerIds => {
+                writeln!(f, "world.getPlayerIds()").unwrap();
             }
-            Self::WorldSetBlock {
+            Command::WorldSetBlock {
                 coords,
                 tile: block,
                 data,
@@ -1457,8 +1462,9 @@ impl<'a> Display for Command<'a> {
                     point(coords),
                     optional(json_nbt, true)
                 )
+                .unwrap();
             }
-            Self::WorldSetBlocks {
+            Command::WorldSetBlocks {
                 coords_1,
                 coords_2,
                 tile: block,
@@ -1472,11 +1478,12 @@ impl<'a> Display for Command<'a> {
                     point(coords_2),
                     optional(json_nbt, true)
                 )
+                .unwrap();
             }
-            Self::WorldSetting { key, value } => {
-                writeln!(f, "world.setting({key},{})", *value as i32)
+            Command::WorldSetting { key, value } => {
+                writeln!(f, "world.setting({key},{})", *value as i32).unwrap();
             }
-            Self::WorldSetSign {
+            Command::WorldSetSign {
                 coords,
                 tile: block,
                 data,
@@ -1492,50 +1499,51 @@ impl<'a> Display for Command<'a> {
                         .collect::<Vec<_>>()
                         .join(",")
                 )
+                .unwrap();
             }
-            Self::RaspberryJuiceWorldSpawnEntity {
+            Command::RaspberryJuiceWorldSpawnEntity {
                 coords,
                 entity_type,
             } => {
-                writeln!(f, "world.spawnEntity({},{entity_type})", point(coords))
+                writeln!(f, "world.spawnEntity({},{entity_type})", point(coords)).unwrap();
             }
-            Self::WorldGetEntityTypes => {
-                writeln!(f, "world.getEntityTypes()")
+            Command::WorldGetEntityTypes => {
+                writeln!(f, "world.getEntityTypes()").unwrap();
             }
-            Self::EntityGetName(entity_id) => {
-                writeln!(f, "entity.getName({entity_id})")
+            Command::EntityGetName(entity_id) => {
+                writeln!(f, "entity.getName({entity_id})").unwrap();
             }
-            Self::EntityGetDirection(entity_id) => {
-                writeln!(f, "entity.getDirection({entity_id})")
+            Command::EntityGetDirection(entity_id) => {
+                writeln!(f, "entity.getDirection({entity_id})").unwrap();
             }
-            Self::EntitySetDirection(entity_id, direction) => {
-                writeln!(f, "entity.setDirection({entity_id},{})", point(direction))
+            Command::EntitySetDirection(entity_id, direction) => {
+                writeln!(f, "entity.setDirection({entity_id},{})", point(direction)).unwrap();
             }
-            Self::EntityGetPitch(entity_id) => {
-                writeln!(f, "entity.getPitch({entity_id})")
+            Command::EntityGetPitch(entity_id) => {
+                writeln!(f, "entity.getPitch({entity_id})").unwrap();
             }
-            Self::EntitySetPitch(entity_id, pitch) => {
-                writeln!(f, "entity.setPitch({entity_id},{pitch})")
+            Command::EntitySetPitch(entity_id, pitch) => {
+                writeln!(f, "entity.setPitch({entity_id},{pitch})").unwrap();
             }
-            Self::EntityGetRotation(entity_id) => {
-                writeln!(f, "entity.getRotation({entity_id})")
+            Command::EntityGetRotation(entity_id) => {
+                writeln!(f, "entity.getRotation({entity_id})").unwrap();
             }
-            Self::EntitySetRotation(entity_id, rotation) => {
-                writeln!(f, "entity.setRotation({entity_id},{rotation})")
+            Command::EntitySetRotation(entity_id, rotation) => {
+                writeln!(f, "entity.setRotation({entity_id},{rotation})").unwrap();
             }
-            Self::EntityEventsClear(entity_id) => {
-                writeln!(f, "entity.events.clear({entity_id})")
+            Command::EntityEventsClear(entity_id) => {
+                writeln!(f, "entity.events.clear({entity_id})").unwrap();
             }
-            Self::EntityEventsBlockHits(entity_id) => {
-                writeln!(f, "entity.events.block.hits({entity_id})")
+            Command::EntityEventsBlockHits(entity_id) => {
+                writeln!(f, "entity.events.block.hits({entity_id})").unwrap();
             }
-            Self::EntityEventsChatPosts(entity_id) => {
-                writeln!(f, "entity.events.chat.posts({entity_id})")
+            Command::EntityEventsChatPosts(entity_id) => {
+                writeln!(f, "entity.events.chat.posts({entity_id})").unwrap();
             }
-            Self::EntityEventsProjectileHits(entity_id) => {
-                writeln!(f, "entity.events.projectile.hits({entity_id})")
+            Command::EntityEventsProjectileHits(entity_id) => {
+                writeln!(f, "entity.events.projectile.hits({entity_id})").unwrap();
             }
-            Self::EntityGetEntities {
+            Command::EntityGetEntities {
                 target,
                 distance,
                 entity_type,
@@ -1545,8 +1553,9 @@ impl<'a> Display for Command<'a> {
                     "entity.getEntities({target},{distance}{})",
                     optional(entity_type, true)
                 )
+                .unwrap();
             }
-            Self::EntityRemoveEntities {
+            Command::EntityRemoveEntities {
                 target,
                 distance,
                 entity_type,
@@ -1556,44 +1565,45 @@ impl<'a> Display for Command<'a> {
                     "entity.removeEntities({target},{distance}{})",
                     optional(entity_type, true)
                 )
+                .unwrap();
             }
-            Self::PlayerGetAbsPos => {
-                writeln!(f, "player.getAbsPos()")
+            Command::PlayerGetAbsPos => {
+                writeln!(f, "player.getAbsPos()").unwrap();
             }
-            Self::PlayerSetAbsPos(pos) => {
-                writeln!(f, "player.setAbsPos({})", point(pos))
+            Command::PlayerSetAbsPos(pos) => {
+                writeln!(f, "player.setAbsPos({})", point(pos)).unwrap();
             }
-            Self::PlayerGetDirection => {
-                writeln!(f, "player.getDirection()")
+            Command::PlayerGetDirection => {
+                writeln!(f, "player.getDirection()").unwrap();
             }
-            Self::PlayerSetDirection(direction) => {
-                writeln!(f, "player.setDirection({})", point(direction))
+            Command::PlayerSetDirection(direction) => {
+                writeln!(f, "player.setDirection({})", point(direction)).unwrap();
             }
-            Self::PlayerGetRotation => {
-                writeln!(f, "player.getRotation()")
+            Command::PlayerGetRotation => {
+                writeln!(f, "player.getRotation()").unwrap();
             }
-            Self::PlayerSetRotation(rotation) => {
-                writeln!(f, "player.setRotation({rotation})")
+            Command::PlayerSetRotation(rotation) => {
+                writeln!(f, "player.setRotation({rotation})").unwrap();
             }
-            Self::PlayerGetPitch => {
-                writeln!(f, "player.getPitch()")
+            Command::PlayerGetPitch => {
+                writeln!(f, "player.getPitch()").unwrap();
             }
-            Self::PlayerSetPitch(pitch) => {
-                writeln!(f, "player.setPitch({pitch})")
+            Command::PlayerSetPitch(pitch) => {
+                writeln!(f, "player.setPitch({pitch})").unwrap();
             }
-            Self::PlayerEventsClear => {
-                writeln!(f, "player.events.clear()")
+            Command::PlayerEventsClear => {
+                writeln!(f, "player.events.clear()").unwrap();
             }
-            Self::PlayerEventsBlockHits => {
-                writeln!(f, "player.events.block.hits()")
+            Command::PlayerEventsBlockHits => {
+                writeln!(f, "player.events.block.hits()").unwrap();
             }
-            Self::PlayerEventsChatPosts => {
-                writeln!(f, "player.events.chat.posts()")
+            Command::PlayerEventsChatPosts => {
+                writeln!(f, "player.events.chat.posts()").unwrap();
             }
-            Self::PlayerEventsProjectileHits => {
-                writeln!(f, "player.events.projectile.hits()")
+            Command::PlayerEventsProjectileHits => {
+                writeln!(f, "player.events.projectile.hits()").unwrap();
             }
-            Self::PlayerGetEntities {
+            Command::PlayerGetEntities {
                 distance,
                 entity_type,
             } => {
@@ -1602,8 +1612,9 @@ impl<'a> Display for Command<'a> {
                     "player.getEntities({distance}{})",
                     optional(entity_type, true)
                 )
+                .unwrap();
             }
-            Self::PlayerRemoveEntities {
+            Command::PlayerRemoveEntities {
                 distance,
                 entity_type,
             } => {
@@ -1612,35 +1623,36 @@ impl<'a> Display for Command<'a> {
                     "player.removeEntities({distance}{})",
                     optional(entity_type, true)
                 )
+                .unwrap();
             }
-            Self::EventsChatPosts => {
-                writeln!(f, "events.chat.posts()")
+            Command::EventsChatPosts => {
+                writeln!(f, "events.chat.posts()").unwrap();
             }
-            Self::EventsProjectileHits => {
-                writeln!(f, "events.projectile.hits()")
+            Command::EventsProjectileHits => {
+                writeln!(f, "events.projectile.hits()").unwrap();
             }
-            Self::EventsBlockHits => {
-                writeln!(f, "events.block.hits()")
+            Command::EventsBlockHits => {
+                writeln!(f, "events.block.hits()").unwrap();
             }
-            Self::EventsClear => {
-                writeln!(f, "events.clear()")
+            Command::EventsClear => {
+                writeln!(f, "events.clear()").unwrap();
             }
-            Self::CustomLogDebug(message) => {
-                writeln!(f, "custom.log.debug({message})")
+            Command::CustomLogDebug(message) => {
+                writeln!(f, "custom.log.debug({message})").unwrap();
             }
-            Self::CustomLogInfo(message) => {
-                writeln!(f, "custom.log.info({message})")
+            Command::CustomLogInfo(message) => {
+                writeln!(f, "custom.log.info({message})").unwrap();
             }
-            Self::CustomLogWarn(message) => {
-                writeln!(f, "custom.log.warn({message})")
+            Command::CustomLogWarn(message) => {
+                writeln!(f, "custom.log.warn({message})").unwrap();
             }
-            Self::CustomLogErr(message) => {
-                writeln!(f, "custom.log.err({message})")
+            Command::CustomLogErr(message) => {
+                writeln!(f, "custom.log.err({message})").unwrap();
             }
-            Self::CustomInventoryGetSlot => {
-                writeln!(f, "custom.inventory.getSlot()")
+            Command::CustomInventoryGetSlot => {
+                writeln!(f, "custom.inventory.getSlot()").unwrap();
             }
-            Self::CustomInventoryUnsafeGive {
+            Command::CustomInventoryUnsafeGive {
                 id,
                 auxillary,
                 count,
@@ -1652,8 +1664,9 @@ impl<'a> Display for Command<'a> {
                     optional(auxillary, true),
                     optional(count, true)
                 )
+                .unwrap();
             }
-            Self::CustomInventoryGive {
+            Command::CustomInventoryGive {
                 id,
                 auxillary,
                 count,
@@ -1665,53 +1678,54 @@ impl<'a> Display for Command<'a> {
                     optional(auxillary, true),
                     optional(count, true)
                 )
+                .unwrap();
             }
-            Self::CustomOverrideReset => {
-                writeln!(f, "custom.override.reset()")
+            Command::CustomOverrideReset => {
+                writeln!(f, "custom.override.reset()").unwrap();
             }
-            Self::CustomOverride { before, after } => {
-                writeln!(f, "custom.override({before},{after})")
+            Command::CustomOverride { before, after } => {
+                writeln!(f, "custom.override({before},{after})").unwrap();
             }
-            Self::CustomPostClient(message) => {
-                writeln!(f, "custom.post.client({message})")
+            Command::CustomPostClient(message) => {
+                writeln!(f, "custom.post.client({message})").unwrap();
             }
-            Self::CustomPostNoPrefix(message) => {
-                writeln!(f, "custom.post.noPrefix({message})")
+            Command::CustomPostNoPrefix(message) => {
+                writeln!(f, "custom.post.noPrefix({message})").unwrap();
             }
-            Self::CustomKeyPress(key) => {
-                writeln!(f, "custom.key.press({key})")
+            Command::CustomKeyPress(key) => {
+                writeln!(f, "custom.key.press({key})").unwrap();
             }
-            Self::CustomKeyRelease(key) => {
-                writeln!(f, "custom.key.release({key})")
+            Command::CustomKeyRelease(key) => {
+                writeln!(f, "custom.key.release({key})").unwrap();
             }
-            Self::CustomUsernameAll => {
-                writeln!(f, "custom.username.all()")
+            Command::CustomUsernameAll => {
+                writeln!(f, "custom.username.all()").unwrap();
             }
-            Self::CustomWorldParticle { particle, coords } => {
-                writeln!(f, "custom.world.particle({particle},{})", point(coords))
+            Command::CustomWorldParticle { particle, coords } => {
+                writeln!(f, "custom.world.particle({particle},{})", point(coords)).unwrap();
             }
-            Self::CustomWorldDir => {
-                writeln!(f, "custom.world.dir()")
+            Command::CustomWorldDir => {
+                writeln!(f, "custom.world.dir()").unwrap();
             }
-            Self::CustomWorldName => {
-                writeln!(f, "custom.world.name()")
+            Command::CustomWorldName => {
+                writeln!(f, "custom.world.name()").unwrap();
             }
-            Self::CustomWorldServername => {
-                writeln!(f, "custom.world.servername()")
+            Command::CustomWorldServername => {
+                writeln!(f, "custom.world.servername()").unwrap();
             }
-            Self::CustomPlayerGetHealth => {
-                writeln!(f, "custom.player.getHealth()")
+            Command::CustomPlayerGetHealth => {
+                writeln!(f, "custom.player.getHealth()").unwrap();
             }
-            Self::CustomPlayerSetHealth(health) => {
-                writeln!(f, "custom.player.setHealth({health})")
+            Command::CustomPlayerSetHealth(health) => {
+                writeln!(f, "custom.player.setHealth({health})").unwrap();
             }
-            Self::CustomPlayerCloseGUI => {
-                writeln!(f, "custom.player.closeGUI()")
+            Command::CustomPlayerCloseGUI => {
+                writeln!(f, "custom.player.closeGUI()").unwrap();
             }
-            Self::CustomPlayerGetGamemode => {
-                writeln!(f, "custom.player.getGamemode()")
+            Command::CustomPlayerGetGamemode => {
+                writeln!(f, "custom.player.getGamemode()").unwrap();
             }
-            Self::CustomEntitySpawn {
+            Command::CustomEntitySpawn {
                 entity_type,
                 health,
                 coords,
@@ -1726,49 +1740,51 @@ impl<'a> Display for Command<'a> {
                     point(direction),
                     entity_type.1
                 )
+                .unwrap();
             }
-            Self::CustomEntitySetAge { entity_id, age } => {
-                writeln!(f, "custom.entity.setAge({entity_id},{age})")
+            Command::CustomEntitySetAge { entity_id, age } => {
+                writeln!(f, "custom.entity.setAge({entity_id},{age})").unwrap();
             }
-            Self::CustomEntitySetSheepColor { entity_id, color } => {
-                writeln!(f, "custom.entity.setSheepColor({entity_id},{color})")
+            Command::CustomEntitySetSheepColor { entity_id, color } => {
+                writeln!(f, "custom.entity.setSheepColor({entity_id},{color})").unwrap();
             }
-            Self::EventsChatSize => {
-                writeln!(f, "events.chat.size()")
+            Command::EventsChatSize => {
+                writeln!(f, "events.chat.size()").unwrap();
             }
-            Self::CustomRebornVersion => {
-                writeln!(f, "custom.reborn.version()")
+            Command::CustomRebornVersion => {
+                writeln!(f, "custom.reborn.version()").unwrap();
             }
-            Self::CustomRebornFeature(feature) => {
-                writeln!(f, "custom.reborn.feature({feature})")
+            Command::CustomRebornFeature(feature) => {
+                writeln!(f, "custom.reborn.feature({feature})").unwrap();
             }
-            Self::EntityGetAllEntities => {
-                writeln!(f, "entity.getAllEntities()")
+            Command::EntityGetAllEntities => {
+                writeln!(f, "entity.getAllEntities()").unwrap();
             }
-            Self::WorldGetBlocksWithData { coords_1, coords_2 } => {
+            Command::WorldGetBlocksWithData { coords_1, coords_2 } => {
                 writeln!(
                     f,
                     "world.getBlocksWithData({},{})",
                     point(coords_1),
                     point(coords_2)
                 )
+                .unwrap();
             }
-            Self::BlockGetLightLevel { tile: block } => {
-                writeln!(f, "block.getLightLevel({block})")
+            Command::BlockGetLightLevel { tile: block } => {
+                writeln!(f, "block.getLightLevel({block})").unwrap();
             }
-            Self::BlockSetLightLevel { tile: block, level } => {
-                writeln!(f, "block.setLightLevel({block},{level})")
+            Command::BlockSetLightLevel { tile: block, level } => {
+                writeln!(f, "block.setLightLevel({block},{level})").unwrap();
             }
-            Self::EntitySetDimension {
+            Command::EntitySetDimension {
                 entity_id,
                 dimension,
             } => {
-                writeln!(f, "entity.setDimension({entity_id},{dimension})")
+                writeln!(f, "entity.setDimension({entity_id},{dimension})").unwrap();
             }
-            Self::EntityGetNameAndUUID(entity_id) => {
-                writeln!(f, "entity.getNameAndUUID({entity_id})")
+            Command::EntityGetNameAndUUID(entity_id) => {
+                writeln!(f, "entity.getNameAndUUID({entity_id})").unwrap();
             }
-            Self::RaspberryJamWorldSpawnEntity {
+            Command::RaspberryJamWorldSpawnEntity {
                 entity_type,
                 coords,
                 json_nbt,
@@ -1779,32 +1795,33 @@ impl<'a> Display for Command<'a> {
                     point(coords),
                     optional(json_nbt, true)
                 )
+                .unwrap();
             }
-            Self::PlayerSetDimension { dimension } => {
-                writeln!(f, "player.setDimension({dimension})")
+            Command::PlayerSetDimension { dimension } => {
+                writeln!(f, "player.setDimension({dimension})").unwrap();
             }
-            Self::PlayerGetNameAndUUID => {
-                writeln!(f, "player.getNameAndUUID()")
+            Command::PlayerGetNameAndUUID => {
+                writeln!(f, "player.getNameAndUUID()").unwrap();
             }
-            Self::CameraGetEntityId => {
-                writeln!(f, "camera.getEntityId()")
+            Command::CameraGetEntityId => {
+                writeln!(f, "camera.getEntityId()").unwrap();
             }
-            Self::CameraSetFollow { target } => {
-                writeln!(f, "camera.setFollow({})", optional(target, false))
+            Command::CameraSetFollow { target } => {
+                writeln!(f, "camera.setFollow({})", optional(target, false)).unwrap();
             }
-            Self::CameraSetNormal { target } => {
-                writeln!(f, "camera.setNormal({})", optional(target, false))
+            Command::CameraSetNormal { target } => {
+                writeln!(f, "camera.setNormal({})", optional(target, false)).unwrap();
             }
-            Self::CameraSetThirdPerson { target } => {
-                writeln!(f, "camera.setThirdPerson({})", optional(target, false))
+            Command::CameraSetThirdPerson { target } => {
+                writeln!(f, "camera.setThirdPerson({})", optional(target, false)).unwrap();
             }
-            Self::CameraSetDebug => {
-                writeln!(f, "camera.setDebug()")
+            Command::CameraSetDebug => {
+                writeln!(f, "camera.setDebug()").unwrap();
             }
-            Self::CameraSetDistance(distance) => {
-                writeln!(f, "camera.setDistance({distance})")
+            Command::CameraSetDistance(distance) => {
+                writeln!(f, "camera.setDistance({distance})").unwrap();
             }
-            Self::WorldSpawnParticle {
+            Command::WorldSpawnParticle {
                 particle,
                 coords,
                 direction,
@@ -1819,8 +1836,11 @@ impl<'a> Display for Command<'a> {
                     speed,
                     count
                 )
+                .unwrap();
             }
-        }
+        };
+
+        f
     }
 }
 
@@ -1900,13 +1920,6 @@ pub struct ChatString(Cp437String<'static>);
 impl AsRef<[u8]> for ChatString {
     fn as_ref(&self) -> &[u8] {
         self.0.as_ref()
-    }
-}
-
-impl Display for ChatString {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let string = std::str::from_utf8(self.as_ref()).unwrap();
-        write!(f, "{string}")
     }
 }
 
@@ -2113,7 +2126,7 @@ impl ServerConnection {
     }
 
     pub async fn send(&mut self, command: Command<'_>) -> Result<String, ConnectionError> {
-        self.send_raw(command.to_string().as_bytes(), command.has_response())
+        self.send_raw(&Vec::from(&command), command.has_response())
             .await
     }
 
@@ -2196,7 +2209,7 @@ mod tests {
     fn api_str_and_chat_string_allow_special_characters() {
         let string = ChatString::from_str_lossy("I am so happy ♥");
         let command = Command::ChatPost(&string);
-        assert_eq!(command.to_string(), "chat.post(I am so happy \u{003})\n");
+        assert_eq!(Vec::from(&command), b"chat.post(I am so happy \x03\n");
         let string = ApiStr::new("I am so happy ♥").unwrap();
         assert_eq!(string.to_string(), "I am so happy ♥");
     }
@@ -2206,8 +2219,8 @@ mod tests {
         let string = ChatString::from_str_lossy("Hello world. This is a \"quote.\" )");
         let command = Command::ChatPost(&string);
         assert_eq!(
-            command.to_string(),
-            "chat.post(Hello world. This is a \"quote.\" ))\n"
+            Vec::from(&command),
+            b"chat.post(Hello world. This is a \"quote.\" ))\n"
         );
     }
 
@@ -2215,28 +2228,28 @@ mod tests {
     fn command_point_large_values() {
         let vec = Point3::new(1e100, 2.0, 3.0);
         let command = Command::PlayerSetPos(vec);
-        assert_eq!(command.to_string(), "player.setPos(10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000,2,3)\n");
+        assert_eq!(Vec::from(&command), b"player.setPos(10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000,2,3)\n");
     }
 
     #[test]
     fn command_point_serializes_f64_int() {
         let vec = Point3::new(1.0, 2.0, 3.0);
         let command = Command::PlayerSetPos(vec);
-        assert_eq!(command.to_string(), "player.setPos(1,2,3)\n");
+        assert_eq!(Vec::from(&command), b"player.setPos(1,2,3)\n");
     }
 
     #[test]
     fn command_point_serializes_f64_real() {
         let vec = Point3::new(1.5, 2.5, 3.5);
         let command = Command::PlayerSetPos(vec);
-        assert_eq!(command.to_string(), "player.setPos(1.5,2.5,3.5)\n");
+        assert_eq!(Vec::from(&command), b"player.setPos(1.5,2.5,3.5)\n");
     }
 
     #[test]
     fn command_point_serializes_i16() {
         let vec = Point3::new(1, 2, 3);
         let command = Command::WorldGetBlock(vec);
-        assert_eq!(command.to_string(), "world.getBlock(1,2,3)\n");
+        assert_eq!(Vec::from(&command), b"world.getBlock(1,2,3)\n");
     }
 
     #[test]
@@ -2244,13 +2257,13 @@ mod tests {
         let vec_1 = Point3::new(1, 2, 3);
         let vec_2 = Point3::new(4, 5, 6);
         let command = Command::WorldGetBlocks(vec_1, vec_2);
-        assert_eq!(command.to_string(), "world.getBlocks(1,2,3,4,5,6)\n");
+        assert_eq!(Vec::from(&command), b"world.getBlocks(1,2,3,4,5,6)\n");
     }
 
     #[test]
     fn command_optionals_comma_ommitted_when_first_arg_none() {
         let command = Command::CameraModeSetFollow { target: None };
-        assert_eq!(command.to_string(), "camera.mode.setFollow()\n");
+        assert_eq!(Vec::from(&command), b"camera.mode.setFollow()\n");
     }
 
     #[test]
@@ -2258,23 +2271,23 @@ mod tests {
         let command = Command::CameraModeSetFollow {
             target: Some(EntityId(1)),
         };
-        assert_eq!(command.to_string(), "camera.mode.setFollow(1)\n");
+        assert_eq!(Vec::from(&command), b"camera.mode.setFollow(1)\n");
     }
 
     #[test]
     fn raspberry_jam_camera_apis_have_no_mode() {
         let command = Command::CameraModeSetNormal { target: None };
-        assert_eq!(command.to_string(), "camera.mode.setNormal()\n");
+        assert_eq!(Vec::from(&command), b"camera.mode.setNormal()\n");
         let command = Command::CameraSetNormal { target: None };
-        assert_eq!(command.to_string(), "camera.setNormal()\n");
+        assert_eq!(Vec::from(&command), b"camera.setNormal()\n");
         let command = Command::CameraModeSetThirdPerson { target: None };
-        assert_eq!(command.to_string(), "camera.mode.setThirdPerson()\n");
+        assert_eq!(Vec::from(&command), b"camera.mode.setThirdPerson()\n");
         let command = Command::CameraSetThirdPerson { target: None };
-        assert_eq!(command.to_string(), "camera.setThirdPerson()\n");
+        assert_eq!(Vec::from(&command), b"camera.setThirdPerson()\n");
         let command = Command::CameraModeSetFollow { target: None };
-        assert_eq!(command.to_string(), "camera.mode.setFollow()\n");
+        assert_eq!(Vec::from(&command), b"camera.mode.setFollow()\n");
         let command = Command::CameraSetFollow { target: None };
-        assert_eq!(command.to_string(), "camera.setFollow()\n");
+        assert_eq!(Vec::from(&command), b"camera.setFollow()\n");
     }
 
     #[test]
