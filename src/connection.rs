@@ -130,9 +130,9 @@ impl Tile {
     pub const UPDATE: Self = Self(248);
     pub const ATEUPD: Self = Self(249);
     pub const GRASS_BLOCK_CARRIED: Self = Self(253);
-    /// This block is a darker version of [`LEAVES`].
+    /// This tile is a darker version of [`LEAVES`].
     pub const LEAVES_CARRIED: Self = Self(254);
-    /// This block is a duplicate of [`STONE`] with a different ID.
+    /// This tile is a duplicate of [`STONE`] with a different ID.
     pub const STONE_1: Self = Self(255);
 
     /// Returns a helper struct that can be converted to a human-readable version of the block name.
