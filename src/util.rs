@@ -1,5 +1,7 @@
+use std::borrow::Cow;
 use std::collections::HashMap;
-use std::sync::OnceLock;
+use std::fmt::{Display, Write};
+use std::sync::LazyLock;
 
 use nalgebra::{Point, Scalar};
 
@@ -22,7 +24,7 @@ where
 const CP437_CHARACTERS: usize = 256;
 /// Used to convert a CP437 character to a Unicode character.
 #[rustfmt::skip]
-static CP437_TO_STR: [char; CP437_CHARACTERS] = [
+pub static CP437_TO_STR: [char; CP437_CHARACTERS] = [
     '\0', '☺', '☻', '♥', '♦', '♣', '♠', '•', '◘', '○', '\n', '♂', '♀', '♪', '♫', '☼',
     '►', '◄', '↕', '‼', '¶', '§', '▬', '↨', '↑', '↓', '→', '←', '∟', '↔', '▲', '▼',
     ' ', '!', '"', '#', '$', '%', '&', '\'', '(', ')', '*', '+', ',', '-', '.', '/',
@@ -40,37 +42,61 @@ static CP437_TO_STR: [char; CP437_CHARACTERS] = [
 	'α', 'ß', 'Γ', 'π', 'Σ', 'σ', 'µ', 'τ', 'Φ', 'Θ', 'Ω', 'δ', '∞', 'φ', 'ε', '∩',
     '≡', '±', '≥', '≤', '⌠', '⌡', '÷', '≈', '°', '∙', '·', '√', 'ⁿ', '²', '■', '©'
 ];
-pub static CHAR_TO_CP437: OnceLock<HashMap<char, u8>> = OnceLock::new();
 
-fn get_char_to_cp437() -> &'static HashMap<char, u8> {
-    CHAR_TO_CP437.get_or_init(|| {
-        let mut map = HashMap::new();
-        for (i, &c) in CP437_TO_STR.iter().enumerate() {
-            map.insert(c, i as u8);
-        }
-        map
-    })
-}
-
-pub fn cp437_to_string(cp437: &[u8]) -> String {
-    let mut s = String::new();
-    for &c in cp437 {
-        s.push(CP437_TO_STR[c as usize]);
+pub static CHAR_TO_CP437: LazyLock<HashMap<char, u8>> = LazyLock::new(|| {
+    let mut map = HashMap::new();
+    for (i, &c) in CP437_TO_STR.iter().enumerate() {
+        map.insert(c, i as u8);
     }
-    s
+    map
+});
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+pub struct Cp437String<'a>(pub Cow<'a, [u8]>);
+
+impl<'a> Cp437String<'a> {
+    #[must_use]
+    pub fn from_utf8(s: &str) -> Option<Self> {
+        let converted_bytes: Option<Vec<u8>> =
+            s.chars().map(|c| CHAR_TO_CP437.get(&c).cloned()).collect();
+        Some(Self(Cow::Owned(converted_bytes?)))
+    }
+
+    #[must_use]
+    pub fn from_utf8_lossy(s: &str) -> Self {
+        let replacement = CHAR_TO_CP437[&'?'];
+        let converted_bytes = s
+            .chars()
+            .map(|c| CHAR_TO_CP437.get(&c).cloned().unwrap_or(replacement))
+            .collect();
+        Self(Cow::Owned(converted_bytes))
+    }
+
+    #[must_use]
+    pub fn into_inner(self) -> Cow<'a, [u8]> {
+        self.0
+    }
 }
 
-pub fn str_to_cp437(s: &str) -> Option<Vec<u8>> {
-    let map = get_char_to_cp437();
-    s.chars().map(|c| map.get(&c).cloned()).collect()
+impl<'a> Display for Cp437String<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for &c in self.0.iter() {
+            f.write_char(CP437_TO_STR[c as usize])?;
+        }
+        Ok(())
+    }
 }
 
-pub fn str_to_cp437_lossy(s: &str) -> Vec<u8> {
-    let map = get_char_to_cp437();
-    const REPLACEMENT: u8 = b'?'; // utf-8 codepoint same as cp437
-    s.chars()
-        .map(|c| map.get(&c).cloned().unwrap_or(REPLACEMENT))
-        .collect()
+impl From<Vec<u8>> for Cp437String<'static> {
+    fn from(value: Vec<u8>) -> Self {
+        Self(Cow::Owned(value))
+    }
+}
+
+impl<'a> AsRef<[u8]> for Cp437String<'a> {
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_ref()
+    }
 }
 
 #[cfg(test)]
@@ -79,18 +105,27 @@ mod tests {
 
     #[test]
     fn test_cp437_to_string() {
-        assert_eq!(cp437_to_string(&[0, 1, 2, 3]), "\0☺☻♥");
+        assert_eq!(
+            Cp437String(Cow::Borrowed(&[0, 1, 2, 3])).to_string(),
+            "\0☺☻♥"
+        );
     }
 
     #[test]
     fn test_str_to_cp437() {
-        assert_eq!(str_to_cp437("☺☻♥♦"), Some(vec![1, 2, 3, 4]));
-        assert_eq!(str_to_cp437("☺\r"), None);
+        assert_eq!(
+            Cp437String::from_utf8("☺☻♥♦"),
+            Some(Cp437String(Cow::Owned(vec![1, 2, 3, 4])))
+        );
+        assert_eq!(Cp437String::from_utf8("☺\r"), None);
     }
 
     #[test]
     fn test_str_to_cp437_lossy() {
-        assert_eq!(str_to_cp437_lossy("☺☻♥♦"), vec![1, 2, 3, 4]);
-        assert_eq!(str_to_cp437_lossy("☺☻♥♦\r"), vec![1, 2, 3, 4, b'?']);
+        assert_eq!(Cp437String::from_utf8_lossy("☺☻♥♦").as_ref(), &[1, 2, 3, 4]);
+        assert_eq!(
+            Cp437String::from_utf8_lossy("☺☻♥♦\r").as_ref(),
+            &[1, 2, 3, 4, 63] // last char is CP437 "?" symbol
+        );
     }
 }

@@ -7,6 +7,7 @@
 //! - [MCPI Revival Wiki](https://mcpirevival.miraheze.org/wiki/MCPI_Revival)
 //!
 
+use std::borrow::Cow;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::future::Future;
 use std::ops::Deref;
@@ -21,7 +22,7 @@ use tokio::sync::oneshot::error::RecvError;
 use tokio::time::error::Elapsed;
 use tokio::time::timeout;
 
-use crate::util::{cp437_to_string, str_to_cp437, str_to_cp437_lossy};
+use crate::util::{Cp437String, CHAR_TO_CP437};
 
 pub mod queued;
 
@@ -1894,17 +1895,17 @@ pub enum ChatStringError {
 /// A CP437 string that does not contain the LF (line feed) character.
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
-pub struct ChatString(Vec<u8>);
+pub struct ChatString(Cp437String<'static>);
 
 impl AsRef<[u8]> for ChatString {
     fn as_ref(&self) -> &[u8] {
-        &self.0
+        self.0.as_ref()
     }
 }
 
 impl Display for ChatString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let string = std::str::from_utf8(&self.0).unwrap();
+        let string = std::str::from_utf8(self.as_ref()).unwrap();
         write!(f, "{string}")
     }
 }
@@ -1912,7 +1913,7 @@ impl Display for ChatString {
 impl FromStr for ChatString {
     type Err = ChatStringError;
 
-    /// Creates a new ApiString from the given string.
+    /// Creates a new [`ChatString`] from the given string.
     ///
     /// # Errors
     ///
@@ -1921,34 +1922,40 @@ impl FromStr for ChatString {
         if s.contains('\n') {
             Err(NewlineStrSnafu.build().into())
         } else {
-            let cp437 = str_to_cp437(s).context(CP437Snafu)?;
+            let cp437 = Cp437String::from_utf8(s).context(CP437Snafu)?;
             Ok(Self(cp437))
         }
     }
 }
 
 impl ChatString {
-    /// Creates a new ApiString from the given string.
+    /// Creates a new [`ChatString`] from the given string.
     ///
     /// Invalid characters are replaced with the "?" character.
     #[must_use]
     pub fn from_str_lossy(inner: &str) -> Self {
-        let cp437 = str_to_cp437_lossy(inner);
-        Self(cp437)
+        let replacement = CHAR_TO_CP437[&'?'];
+        let converted_bytes = inner
+            .chars()
+            .map(|c| if c == '\n' { '?' } else { c })
+            .map(|c| CHAR_TO_CP437.get(&c).cloned().unwrap_or(replacement))
+            .collect();
+        Self(Cp437String(Cow::Owned(converted_bytes)))
     }
 
-    /// Creates a new ApiString from the given bytes.
+    /// Creates a new [`ChatString`] from the given [`Cp437String`].
     ///
     /// # Safety
     ///
-    /// The string must not be CP437-encoded and not contain LF (line feed) characters.
+    /// The string must be CP437-encoded and not contain LF (line feed) characters.
     #[must_use]
-    pub unsafe fn from_vec_unchecked(inner: Vec<u8>) -> Self {
+    pub const unsafe fn new_unchecked(inner: Cp437String<'static>) -> Self {
         Self(inner)
     }
 
+    #[must_use]
     pub fn to_utf8(&self) -> String {
-        cp437_to_string(&self.0)
+        self.0.to_string()
     }
 }
 
