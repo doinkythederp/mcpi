@@ -331,6 +331,10 @@ impl<T: Protocol> World<T> {
     }
 }
 
+/// Represents a block hit event.
+///
+/// Block hits are usually triggered when a player right clicks a block with a sword.
+/// This may differ depending on your server implementation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct BlockHit {
     /// The coordinates of the block that was hit.

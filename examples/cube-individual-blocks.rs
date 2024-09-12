@@ -1,6 +1,6 @@
 //! Creates a 25x25x25 cube using individual block placement commands.
 //!
-//! All in all, 15,625 commands will be sent to the server. (50^3)
+//! All in all, 15,625 commands will be sent to the server. (25^3)
 
 use mcpi::connection::{Command, ConnectOptions, ServerConnection, Tile, TileData};
 use nalgebra::Point3;

@@ -135,7 +135,7 @@ impl Tile {
     /// This tile is a duplicate of [`STONE`] with a different ID.
     pub const STONE_1: Self = Self(255);
 
-    /// Returns a helper struct that can be converted to a human-readable version of the block name.
+    /// Returns a helper struct that can be converted to a human-readable version of the tile name.
     pub const fn display(self) -> TileDisplay {
         TileDisplay::new(self)
     }
