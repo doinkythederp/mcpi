@@ -3,13 +3,13 @@
 
 use std::num::{ParseFloatError, ParseIntError};
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::Duration;
 
 use block::{BlockFace, InvalidBlockFaceError, ParseBlockError};
-use connection::queued::QueuedConnection;
 use connection::{
-    ApiStr, ChatString, Command, ConnectionError, EntityId, NewlineStrError, Protocol, Tile,
-    TileData, WorldSettingKey,
+    ApiStr, ChatString, ClonableConnection, Command, ConnectionError, EntityId, NewlineStrError,
+    Protocol, ServerConnection, Tile, TileData, WorldSettingKey,
 };
 use entity::{ClientPlayer, Player};
 use futures_core::Stream;
@@ -23,6 +23,7 @@ pub mod entity;
 pub mod util;
 
 pub use block::Block;
+use tokio::sync::Mutex;
 
 /// Error type for the World struct
 #[derive(Debug, Snafu)]
@@ -46,24 +47,24 @@ pub enum WorldError {
 pub type Result<T = (), E = WorldError> = std::result::Result<T, E>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct World<T: Protocol> {
+pub struct World<T: Protocol + Clone = ClonableConnection> {
     connection: T,
 }
 
-impl<T: Protocol> From<T> for World<T> {
+impl<T: Protocol + Clone> From<T> for World<T> {
     fn from(value: T) -> Self {
         Self::new(value)
     }
 }
 
-impl World<QueuedConnection> {
+impl World<ClonableConnection> {
     pub async fn connect(addr: &str) -> std::io::Result<Self> {
-        let connection = QueuedConnection::new(addr, Default::default(), 100).await?;
-        Ok(Self::new(connection))
+        let connection = ServerConnection::new(addr, Default::default()).await?;
+        Ok(Self::new(Arc::new(Mutex::new(Some(connection)))))
     }
 }
 
-impl<T: Protocol> World<T> {
+impl<T: Protocol + Clone> World<T> {
     pub const fn new(connection: T) -> Self {
         Self { connection }
     }
@@ -299,7 +300,10 @@ impl<T: Protocol> World<T> {
     /// # Arguments
     ///
     /// * `interval` - The interval at which to poll for block hits.
-    pub fn block_hits(&self, interval: Duration) -> impl Stream<Item = Result<BlockHit>> {
+    pub fn block_hits(
+        &self,
+        interval: Duration,
+    ) -> impl Stream<Item = Result<BlockHit>> + use<'_, T> {
         let world = self.clone();
         async_stream::stream! {
             let mut interval = tokio::time::interval(interval);

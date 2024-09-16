@@ -13,6 +13,7 @@ use std::future::Future;
 use std::io::Write;
 use std::ops::Deref;
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::Duration;
 
 use nalgebra::{Point, Point2, Point3, Scalar};
@@ -20,12 +21,11 @@ use snafu::{Backtrace, OptionExt, Snafu};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufWriter};
 use tokio::net::{TcpStream, ToSocketAddrs};
 use tokio::sync::oneshot::error::RecvError;
+use tokio::sync::Mutex;
 use tokio::time::error::Elapsed;
 use tokio::time::timeout;
 
 use crate::util::{Cp437String, CHAR_TO_CP437};
-
-pub mod queued;
 
 // MARK: Enums
 
@@ -2072,9 +2072,7 @@ impl Default for ConnectOptions {
 }
 
 /// A communication interface with a Minecraft: Pi Edition game server.
-pub trait Protocol: Clone + Debug {
-    /// Updates the connection options.
-    fn set_options(&mut self, options: ConnectOptions) -> Result<(), ConnectionError>;
+pub trait Protocol: Debug {
     /// Sends a command to the server and returns its response.
     ///
     /// If the command does not expect a response (as determined by [`SerializableCommand::has_response`])
@@ -2091,9 +2089,6 @@ pub trait Protocol: Clone + Debug {
 
     /// Flushes the connection and disconnects.
     fn close(self) -> impl Future<Output = Result<(), ConnectionError>> + Send;
-
-    /// Returns the percent of the transmission queue that is full.
-    fn pressure(&self) -> f64;
 }
 
 /// A connection to a game server using the Minecraft: Pi Edition API protocol.
@@ -2101,7 +2096,7 @@ pub trait Protocol: Clone + Debug {
 pub struct ServerConnection {
     socket: BufWriter<TcpStream>,
     buffer: String,
-    options: ConnectOptions,
+    pub options: ConnectOptions,
 }
 
 impl From<BufWriter<TcpStream>> for ServerConnection {
@@ -2132,24 +2127,6 @@ impl ServerConnection {
             buffer: String::new(),
             options,
         }
-    }
-
-    pub fn set_options(&mut self, options: ConnectOptions) -> Result<(), ConnectionError> {
-        self.options = options;
-        Ok(())
-    }
-
-    pub async fn send(
-        &mut self,
-        command: impl SerializableCommand,
-    ) -> Result<String, ConnectionError> {
-        self.send_raw(&command.to_command_bytes(), command.has_response())
-            .await
-    }
-
-    pub async fn close(mut self) -> Result<(), ConnectionError> {
-        self.socket.shutdown().await?;
-        Ok(())
     }
 
     /// Sends a raw command to the server.
@@ -2198,6 +2175,42 @@ impl ServerConnection {
         let idx = self.buffer.find('\n')?;
         let frame = self.buffer.drain(..idx + 1).collect();
         Some(frame)
+    }
+
+    pub async fn send(
+        &mut self,
+        command: impl SerializableCommand,
+    ) -> Result<String, ConnectionError> {
+        self.send_raw(&command.to_command_bytes(), command.has_response())
+            .await
+    }
+
+    pub async fn close(mut self) -> Result<(), ConnectionError> {
+        self.socket.shutdown().await?;
+        Ok(())
+    }
+}
+
+pub type ClonableConnection = Arc<Mutex<Option<ServerConnection>>>;
+
+impl Protocol for ClonableConnection {
+    async fn send(
+        &self,
+        command: impl SerializableCommand + Send,
+    ) -> Result<String, ConnectionError> {
+        if let Some(connection) = self.lock().await.as_mut() {
+            connection.send(command).await
+        } else {
+            ConnectionClosedSnafu.fail()
+        }
+    }
+
+    async fn close(self) -> Result<(), ConnectionError> {
+        if let Some(connection) = self.lock().await.take() {
+            connection.close().await
+        } else {
+            ConnectionClosedSnafu.fail()
+        }
     }
 }
 

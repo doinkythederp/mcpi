@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use chrono::{Local, Timelike};
 use line_drawing::{Bresenham, BresenhamCircle};
-use mcpi::connection::{Protocol, Tile, TileData};
+use mcpi::connection::{Tile, TileData};
 use mcpi::{Block, World};
 use nalgebra::{Point3, Vector3};
 use tokio::time::interval;
@@ -14,11 +14,7 @@ const SECOND_HAND_BLOCK: Block = Block::new(Tile::WOOL, TileData::RED);
 const MINUTE_HAND_BLOCK: Block = Block::new(Tile::WOOL, TileData::YELLOW);
 const HOUR_HAND_BLOCK: Block = Block::new(Tile::WOOL, TileData::BLACK);
 
-async fn draw_frame(
-    world: &mut World<impl Protocol>,
-    center: Point3<i16>,
-    radius: i16,
-) -> mcpi::Result {
+async fn draw_frame(world: &mut World, center: Point3<i16>, radius: i16) -> mcpi::Result {
     for (x, y) in BresenhamCircle::new(center.x, center.y, radius) {
         world
             .set_tile(Point3::new(x, y, center.z), CLOCK_TILE)
@@ -28,7 +24,7 @@ async fn draw_frame(
 }
 
 async fn draw_hand(
-    world: &mut World<impl Protocol>,
+    world: &mut World,
     origin: Point3<i16>,
     len: f64,
     angle_rad: f64,
