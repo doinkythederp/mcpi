@@ -627,7 +627,7 @@ impl<'a> Deref for MCPIExtrasKey<'a> {
 /// The color of a sheep.
 ///
 /// This can be when creating a new Sheep entity with [`MCPIExtrasEntityType`].or when
-/// changing a sheep's color using [`Command::CustomEntitySetSheepColor`].
+/// changing a sheep's color using [`CustomEntitySetSheepColor`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SheepColor(pub i32);
 
@@ -666,7 +666,7 @@ impl Display for SheepColor {
 
 /// An entity type supported by the MCPI Addons API extension.
 ///
-/// This type is primarily used by the [`Command::CustomEntitySpawn`] API call
+/// This type is primarily used by the [`CustomEntitySpawn`] API call
 /// while connected to a server with the MCPI Addons API extension.
 ///
 /// The struct itself is an entity type and an entity data value. Entities which do not have a data value
@@ -760,7 +760,7 @@ impl<'a> Display for MCPIExtrasParticle<'a> {
     }
 }
 
-/// A particle that can be spawned using the [`Command::WorldSpawnParticle`] API call
+/// A particle that can be spawned using the [`WorldSpawnParticle`] API call
 /// while connected to a server with the Raspberry Jam API extension.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RaspberryJamParticle<'a>(pub ApiStr<'a>);
@@ -850,22 +850,22 @@ impl Display for Dimension {
 
 /// A player-related setting that can be updated using the API.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct PlayerSettingKey<'a>(pub ApiStr<'a>);
+pub struct PlayerSettingKey(pub ApiStr<'static>);
 
-impl PlayerSettingKey<'_> {
+impl PlayerSettingKey {
     /// When enabled, the player will automatically jump when walking into a block.
     pub const AUTOJUMP: Self = Self(ApiStr("autojump"));
 }
 
-impl<'a> Deref for PlayerSettingKey<'a> {
-    type Target = ApiStr<'a>;
+impl Deref for PlayerSettingKey {
+    type Target = ApiStr<'static>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl<'a> Display for PlayerSettingKey<'a> {
+impl Display for PlayerSettingKey {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         Display::fmt(&self.0, f)
     }
@@ -873,9 +873,9 @@ impl<'a> Display for PlayerSettingKey<'a> {
 
 /// A world-related setting that can be updated using the API.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct WorldSettingKey<'a>(pub ApiStr<'a>);
+pub struct WorldSettingKey(pub ApiStr<'static>);
 
-impl WorldSettingKey<'_> {
+impl WorldSettingKey {
     /// When enabled, players cannot edit the world (such as by placing or destroying blocks).
     pub const WORLD_IMMUTABLE: Self = Self(ApiStr("world_immutable"));
     /// When disabled, player name tags will not be shown above their heads.
@@ -886,15 +886,15 @@ impl WorldSettingKey<'_> {
     pub const PAUSE_DRAWING: Self = Self(ApiStr("pause_drawing"));
 }
 
-impl<'a> Deref for WorldSettingKey<'a> {
-    type Target = ApiStr<'a>;
+impl Deref for WorldSettingKey {
+    type Target = ApiStr<'static>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl<'a> Display for WorldSettingKey<'a> {
+impl Display for WorldSettingKey {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         Display::fmt(&self.0, f)
     }
@@ -902,24 +902,24 @@ impl<'a> Display for WorldSettingKey<'a> {
 
 /// An event-related setting that can be updated using the API. (Raspberry Jam extension)
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct EventsSettingKey<'a>(pub ApiStr<'a>);
+pub struct EventsSettingKey(pub ApiStr<'static>);
 
-impl WorldSettingKey<'_> {
+impl WorldSettingKey {
     /// Raspberry Jam extension: controls whether events will only be sent from players holding a sword.
     pub const RESTRICT_TO_SWORD: Self = Self(ApiStr("restrict_to_sword"));
     /// Raspberry Jam extension: controls whether events will be sent that were triggered by left-clicks.
     pub const DETECT_LEFT_CLICK: Self = Self(ApiStr("detect_left_click"));
 }
 
-impl<'a> Deref for EventsSettingKey<'a> {
-    type Target = ApiStr<'a>;
+impl Deref for EventsSettingKey {
+    type Target = ApiStr<'static>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl<'a> Display for EventsSettingKey<'a> {
+impl Display for EventsSettingKey {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         Display::fmt(&self.0, f)
     }
@@ -948,12 +948,66 @@ impl Display for EntityId {
 /// Values implementing this trait are commands that can be serialized and sent to the Minecraft
 /// game server.
 pub trait SerializableCommand {
+    /// Whether the specified command should wait for a response from the game server.
+    const HAS_RESPONSE: bool;
     // Serializes the specified command into bytes that can be sent to the game server.
     #[must_use]
     fn to_command_bytes(&self) -> Vec<u8>;
-    /// Evaluates whether the specified command should wait for a response from the game server.
-    #[must_use]
-    fn has_response(&self) -> bool;
+}
+
+/// A wrapper struct for command libraries that displays an empty string
+/// when its inner field is empty.
+#[derive(Debug)]
+struct MaybeField<T: Display, const COMMA_IF_SOME: bool = false>(pub Option<T>);
+
+impl<T: Display, const COMMA_IF_SOME: bool> Display for MaybeField<T, COMMA_IF_SOME> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        if let Some(inner) = &self.0 {
+            write!(f, "{inner}");
+            if COMMA_IF_SOME {
+                write!(f, ",");
+            }
+        }
+        Ok(())
+    }
+}
+
+impl<T: Display, const COMMA_IF_SOME: bool> From<Option<T>> for MaybeField<T, COMMA_IF_SOME> {
+    fn from(value: Option<T>) -> Self {
+        Self(value)
+    }
+}
+fn point<T: Display + Scalar, const D: usize>(param: &Point<T, D>) -> String {
+    param
+        .iter()
+        .map(|v| v.to_string())
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+#[derive(Debug)]
+struct PointField<T: Display + Scalar, const D: usize>(pub Point<T, D>);
+
+impl<T: Display + Scalar, const D: usize> Display for PointField<T, D> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.0
+                .iter()
+                .map(|v| v.to_string())
+                .collect::<Vec<_>>()
+                .join(",")
+        )
+        .unwrap();
+        Ok(())
+    }
+}
+
+impl<T: Display + Scalar, const D: usize> From<Point<T, D>> for PointField<T, D> {
+    fn from(value: Point<T, D>) -> Self {
+        Self(value)
+    }
 }
 
 /// A command that can be sent to the game server to perform an action or query information.
@@ -967,894 +1021,394 @@ pub trait SerializableCommand {
 ///
 /// Enum members are generally named after the API method they correspond to, with the exception of
 /// a few extension commands that have conflicting names.
-#[derive(Debug)]
-#[non_exhaustive]
-pub enum Command<'a> {
+pub mod commands {
+    use super::*;
+
+    macro_rules! command_library {
+        (@packet_awaits_response request) => { true };
+        (@packet_awaits_response command) => { false };
+
+        {
+            mod $lib_name:ident {
+                $(
+                    $vis:vis $packet_type:ident $packet_name:ident ($($fmt:tt)*) {
+                        $(
+                            $(#[$meta:meta])*
+                            $field:ident : $type:ty
+                        ),*
+                        $(,)?
+                    }
+                )*
+            }
+        } => {
+            $(
+                #[derive(Debug)]
+                $vis struct $packet_name {
+                    $(
+                        $(#[$meta])*
+                        pub $field: $type,
+                    )*
+                }
+
+                impl SerializableCommand for $packet_name {
+                    const HAS_RESPONSE: bool = command_library!(@packet_awaits_response $packet_type);
+                    fn to_command_bytes(&self) -> Vec<u8> {
+                        let mut buf = Vec::new();
+                        let Self {
+                            $(
+                                $field,
+                            )*
+                        } = &self;
+                        writeln!(buf, $($fmt)*).unwrap();
+                        return buf;
+                    }
+                }
+            )*
+        };
+    }
+
+    fn optional<T: Display>(param: &Option<T>, comma: bool) -> String {
+        match param {
+            Some(value) => format!("{}{value}", comma.then_some(",").unwrap_or_default()),
+            None => String::new(),
+        }
+    }
+
     // # Vanilla Commands
 
-    // Camera APIs
-    CameraModeSetFixed,
-    CameraModeSetFollow {
-        target: Option<EntityId>,
-    },
-    CameraModeSetNormal {
-        target: Option<EntityId>,
-    },
-    // TODO: Test whether this works on vanilla
-    CameraModeSetThirdPerson {
-        target: Option<EntityId>,
-    },
-    CameraSetPos(Point3<f64>),
-    // Chat APIs
-    ChatPost(&'a ChatString),
-    // Entity APIs
-    EntityGetPos(EntityId),
-    EntityGetTile(EntityId),
-    EntitySetPos(EntityId, Point3<f64>),
-    EntitySetTile(EntityId, Point3<i16>),
-    // Player APIs
-    PlayerGetPos,
-    PlayerGetTile,
-    PlayerSetPos(Point3<f64>),
-    PlayerSetTile(Point3<i16>),
-    PlayerSetting {
-        key: PlayerSettingKey<'a>,
-        value: bool,
-    },
-    // World APIs
-    WorldCheckpointRestore,
-    WorldCheckpointSave,
-    WorldGetBlock(Point3<i16>),
-    /// Has Raspberry Jam mod extension to get block with NBT data. Requires a world setting to be set.
-    /// TODO: look into this
-    WorldGetBlockWithData(Point3<i16>),
-    WorldGetHeight(Point2<i16>),
-    WorldGetPlayerIds,
-    WorldSetBlock {
-        coords: Point3<i16>,
-        tile: Tile,
-        data: TileData,
-        /// Raspberry Jam mod extension to set block with NBT data.
-        ///
-        /// Set to [`None`] when using other servers.
-        json_nbt: Option<ApiStr<'a>>,
-    },
-    WorldSetBlocks {
-        coords_1: Point3<i16>,
-        coords_2: Point3<i16>,
-        tile: Tile,
-        data: TileData,
-        /// Raspberry Jam mod extension to add NBT data to the blocks being set.
-        ///
-        /// Set to [`None`] when using other servers.
-        json_nbt: Option<ApiStr<'a>>,
-    },
-    WorldSetting {
-        key: WorldSettingKey<'a>,
-        value: bool,
-    },
-    // Event APIs
-    EventsClear,
-    EventsBlockHits,
+    command_library!(
+        mod Vanilla {
+            // Camera APIs
+            pub command CameraModeSetFixed("camera.mode.setFixed()") {}
+            pub command CameraModeSetFollow("camera.mode.setFollow({target})") {
+                target: MaybeField<EntityId>,
+            }
+            pub command CameraModeSetNormal("camera.mode.setNormal({target})") {
+                target: MaybeField<EntityId>,
+            }
+            // TODO: Test whether this works on vanilla
+            pub command CameraModeSetThirdPerson("camera.mode.setThirdPerson({target})") {
+                target: MaybeField<EntityId>,
+            }
+            pub command CameraSetPos("camera.setPos({position}") {
+                position: PointField<f64, 3>,
+            }
 
-    // # Raspberry Juice (& Raspberry Jam) Extensions
-    // https://dev.bukkit.org/projects/raspberryjuice
+            // Entity APIs
+            pub request EntityGetPos("entity.getPos({target})") {
+                target: EntityId,
+            }
+            pub request EntityGetTile("entity.getTile({target}") {
+                target: EntityId,
+            }
+            pub command EntitySetPos("entity.setPos({target},{coords})") {
+                target: EntityId,
+                coords: PointField<f64, 3>,
+            }
+            pub command EntitySetTile("entity.setTile({target},{coords})") {
+                target: EntityId,
+                coords: PointField<i16, 3>,
+            }
 
-    // World APIs
-    WorldGetBlocks(Point3<i16>, Point3<i16>),
-    /// When using the Raspberry Jam mod, this can be set to [`None`] to get the current player's ID.
-    WorldGetPlayerId(Option<ApiStr<'a>>),
-    WorldGetEntities(Option<JavaEntityType>),
-    WorldRemoveEntity(EntityId),
-    WorldRemoveEntities(Option<JavaEntityType>),
-    WorldSetSign {
-        coords: Point3<i16>,
-        tile: Tile,
-        data: TileData,
-        lines: Vec<ApiStr<'a>>,
-    },
-    RaspberryJuiceWorldSpawnEntity {
-        coords: Point3<f64>,
-        entity_type: JavaEntityType,
-    },
-    WorldGetEntityTypes,
-
-    // Entity APIs
-    EntityGetName(EntityId),
-    EntityGetDirection(EntityId),
-    EntitySetDirection(EntityId, Point3<f64>),
-    EntityGetPitch(EntityId),
-    EntitySetPitch(EntityId, f32),
-    EntityGetRotation(EntityId),
-    EntitySetRotation(EntityId, f32),
-    EntityEventsClear(EntityId),
-    EntityEventsBlockHits(EntityId),
-    EntityEventsChatPosts(EntityId),
-    EntityEventsProjectileHits(EntityId),
-    EntityGetEntities {
-        target: EntityId,
-        distance: i32,
-        entity_type: Option<JavaEntityType>,
-    },
-    EntityRemoveEntities {
-        target: EntityId,
-        distance: i32,
-        entity_type: Option<JavaEntityType>,
-    },
-
-    // Player APIs
-    PlayerGetAbsPos,
-    PlayerSetAbsPos(Point3<f64>),
-    PlayerSetDirection(Point3<f64>),
-    PlayerGetDirection,
-    PlayerSetRotation(f32),
-    PlayerGetRotation,
-    PlayerSetPitch(f32),
-    PlayerGetPitch,
-    PlayerEventsClear,
-    PlayerEventsBlockHits,
-    PlayerEventsChatPosts,
-    PlayerEventsProjectileHits,
-    PlayerGetEntities {
-        distance: i32,
-        entity_type: Option<JavaEntityType>,
-    },
-    PlayerRemoveEntities {
-        distance: i32,
-        entity_type: Option<JavaEntityType>,
-    },
-
-    // Events APIs
-    EventsChatPosts,
-    EventsProjectileHits,
-
-    // # MCPI Addons mod by Bigjango13
-    // https://github.com/Bigjango13/MCPI-Addons
-
-    // Custom Log APIs
-    CustomLogDebug(ApiStr<'a>),
-    CustomLogInfo(ApiStr<'a>),
-    CustomLogWarn(ApiStr<'a>),
-    CustomLogErr(ApiStr<'a>),
-
-    // Custom Inventory APIs
-    CustomInventoryGetSlot,
-    CustomInventoryUnsafeGive {
-        id: Option<i32>,
-        auxillary: Option<i32>,
-        count: Option<i32>,
-    },
-    CustomInventoryGive {
-        id: Option<i32>,
-        auxillary: Option<i32>,
-        count: Option<i32>,
-    },
-
-    // Custom Override APIs
-    CustomOverrideReset,
-    CustomOverride {
-        before: Tile,
-        after: Tile,
-    },
-
-    // Custom Post APIs
-    CustomPostClient(ApiStr<'a>),
-    CustomPostNoPrefix(ApiStr<'a>),
-
-    // Custom Key APIs
-    CustomKeyPress(MCPIExtrasKey<'a>),
-    CustomKeyRelease(MCPIExtrasKey<'a>),
-
-    // Custom Username APIs
-    CustomUsernameAll,
-
-    // Custom World API
-    CustomWorldParticle {
-        particle: MCPIExtrasParticle<'a>,
-        coords: Point3<f32>,
-    },
-    CustomWorldDir,
-    CustomWorldName,
-    CustomWorldServername,
-
-    // Custom Player APIs
-    CustomPlayerGetHealth,
-    CustomPlayerSetHealth(i32),
-    CustomPlayerCloseGUI,
-    CustomPlayerGetGamemode,
-
-    // Custom Entity APIs
-    CustomEntitySpawn {
-        entity_type: MCPIExtrasEntityType,
-        health: i32,
-        coords: Point3<f32>,
-        direction: Point2<f32>, // TODO: is this the most correct type?
-    },
-    CustomEntitySetAge {
-        entity_id: EntityId,
-        age: i32,
-    },
-    CustomEntitySetSheepColor {
-        entity_id: EntityId,
-        color: SheepColor,
-    },
-
-    // Chat Events APIs
-    EventsChatSize,
-
-    // Custom Reborn APIs
-    CustomRebornVersion,
-    CustomRebornFeature(ApiStr<'a>),
-
-    // Entity APIs
-    EntityGetAllEntities,
-
-    // # Raspbery Jam mod
-    // https://github.com/arpruss/raspberryjammod
-
-    // World APIs
-    /// Has extension to get block with NBT data. Requires a world setting to be set.
-    WorldGetBlocksWithData {
-        coords_1: Point3<i16>,
-        coords_2: Point3<i16>,
-    },
-    WorldSpawnParticle {
-        particle: RaspberryJamParticle<'a>,
-        coords: Point3<f64>,
-        direction: Point3<f64>, // TODO: Unclear how to use this
-        speed: f64,
-        count: i32,
-    },
-
-    // Block APIs
-    BlockGetLightLevel {
-        tile: Tile,
-    },
-    BlockSetLightLevel {
-        tile: Tile,
-        level: f32,
-    },
-
-    // Entity APIs
-    EntitySetDimension {
-        entity_id: EntityId,
-        dimension: Dimension,
-    },
-    EntityGetNameAndUUID(EntityId),
-    RaspberryJamWorldSpawnEntity {
-        entity_type: JavaEntityType,
-        coords: Point3<f64>,
-        json_nbt: Option<ApiStr<'a>>,
-    },
-
-    // Player APIs
-    PlayerSetDimension {
-        dimension: Dimension,
-    },
-    PlayerGetNameAndUUID,
-
-    // Camera APIs
-    CameraGetEntityId,
-    CameraSetFollow {
-        target: Option<EntityId>,
-    },
-    CameraSetNormal {
-        target: Option<EntityId>,
-    },
-    CameraSetThirdPerson {
-        target: Option<EntityId>,
-    },
-    CameraSetDebug,
-    CameraSetDistance(f32),
-}
-
-impl SerializableCommand for Command<'_> {
-    fn to_command_bytes(&self) -> Vec<u8> {
-        let mut f = Vec::new();
-
-        fn optional<T: Display>(param: &Option<T>, comma: bool) -> String {
-            match param {
-                Some(value) => format!("{}{value}", comma.then_some(",").unwrap_or_default()),
-                None => String::new(),
+            // Player APIs
+            pub request PlayerGetPos("player.getTile()") {}
+            pub request PlayerGetTile("player.getTile()") {}
+            pub command PlayerSetPos("player.setTile({coords})") {
+                coords: Point3<f64>
+            }
+            pub command PlayerSetTile("player.setTile({coords})") {
+                coords: Point3<i16>
+            }
+            pub command PlayerSetting(
+                "player.setting({key},{})",
+                *value as i32,
+            ) {
+                key: PlayerSettingKey,
+                value: bool,
             }
         }
-        fn point<T: Display + Scalar, const D: usize>(param: &Point<T, D>) -> String {
-            param
-                .iter()
-                .map(|v| v.to_string())
-                .collect::<Vec<_>>()
-                .join(",")
-        }
+    );
 
-        match self {
-            Command::CameraModeSetFixed => writeln!(f, "camera.mode.setFixed()").unwrap(),
-            Command::CameraModeSetFollow { target } => {
-                writeln!(f, "camera.mode.setFollow({})", optional(target, false)).unwrap();
-            }
-            Command::CameraModeSetNormal { target } => {
-                writeln!(f, "camera.mode.setNormal({})", optional(target, false)).unwrap();
-            }
-            Command::CameraSetPos(pos) => {
-                writeln!(f, "camera.setPos({})", point(pos)).unwrap();
-            }
-            Command::CameraModeSetThirdPerson { target } => {
-                writeln!(f, "camera.mode.setThirdPerson({})", optional(target, false)).unwrap();
-            }
-            Command::ChatPost(message) => {
-                write!(f, "chat.post(").unwrap();
-                Write::write_all(&mut f, message.as_ref()).unwrap();
-                writeln!(f, ")").unwrap();
-            }
-            Command::EntityGetPos(entity_id) => {
-                writeln!(f, "entity.getPos({entity_id})").unwrap();
-            }
-            Command::EntityGetTile(entity_id) => {
-                writeln!(f, "entity.getTile({entity_id})").unwrap();
-            }
-            Command::EntitySetPos(entity_id, pos) => {
-                writeln!(f, "entity.setPos({entity_id},{})", point(pos)).unwrap();
-            }
-            Command::EntitySetTile(entity_id, tile) => {
-                writeln!(f, "entity.setTile({entity_id},{})", point(tile)).unwrap();
-            }
-            Command::PlayerGetPos => {
-                writeln!(f, "player.getPos()").unwrap();
-            }
-            Command::PlayerGetTile => {
-                writeln!(f, "player.getTile()").unwrap();
-            }
-            Command::PlayerSetPos(pos) => {
-                writeln!(f, "player.setPos({})", point(pos)).unwrap();
-            }
-            Command::PlayerSetTile(tile) => {
-                writeln!(f, "player.setTile({})", point(tile)).unwrap();
-            }
-            Command::PlayerSetting { key, value } => {
-                writeln!(f, "player.setting({key},{})", *value as i32).unwrap();
-            }
-            Command::WorldCheckpointRestore => {
-                writeln!(f, "world.checkpoint.restore()").unwrap();
-            }
-            Command::WorldCheckpointSave => {
-                writeln!(f, "world.checkpoint.save()").unwrap();
-            }
-            Command::WorldGetBlock(pos) => {
-                writeln!(f, "world.getBlock({})", point(pos)).unwrap();
-            }
-            Command::WorldGetBlocks(pos_1, pos_2) => {
-                writeln!(f, "world.getBlocks({},{})", point(pos_1), point(pos_2)).unwrap();
-            }
-            Command::WorldGetPlayerId(name) => {
-                writeln!(f, "world.getPlayerId({})", optional(name, false)).unwrap();
-            }
-            Command::WorldGetEntities(entity_type) => {
-                writeln!(f, "world.getEntities({})", optional(entity_type, false)).unwrap();
-            }
-            Command::WorldRemoveEntity(entity_id) => {
-                writeln!(f, "world.removeEntity({entity_id})").unwrap();
-            }
-            Command::WorldRemoveEntities(entity_type) => {
-                writeln!(f, "world.removeEntities({})", optional(entity_type, false)).unwrap();
-            }
-            Command::WorldGetBlockWithData(pos) => {
-                writeln!(f, "world.getBlockWithData({})", point(pos)).unwrap();
-            }
-            Command::WorldGetHeight(pos) => {
-                writeln!(f, "world.getHeight({})", point(pos)).unwrap();
-            }
-            Command::WorldGetPlayerIds => {
-                writeln!(f, "world.getPlayerIds()").unwrap();
-            }
-            Command::WorldSetBlock {
-                coords,
-                tile: block,
-                data,
-                json_nbt,
-            } => {
-                writeln!(
-                    f,
-                    "world.setBlock({},{block},{data}{})",
-                    point(coords),
-                    optional(json_nbt, true)
-                )
-                .unwrap();
-            }
-            Command::WorldSetBlocks {
-                coords_1,
-                coords_2,
-                tile: block,
-                data,
-                json_nbt,
-            } => {
-                writeln!(
-                    f,
-                    "world.setBlocks({},{},{block},{data}{})",
-                    point(coords_1),
-                    point(coords_2),
-                    optional(json_nbt, true)
-                )
-                .unwrap();
-            }
-            Command::WorldSetting { key, value } => {
-                writeln!(f, "world.setting({key},{})", *value as i32).unwrap();
-            }
-            Command::WorldSetSign {
-                coords,
-                tile: block,
-                data,
-                lines,
-            } => {
-                writeln!(
-                    f,
-                    "world.setSign({},{block},{data},{})",
-                    point(coords),
-                    lines
-                        .iter()
-                        .map(|line| line.to_string())
-                        .collect::<Vec<_>>()
-                        .join(",")
-                )
-                .unwrap();
-            }
-            Command::RaspberryJuiceWorldSpawnEntity {
-                coords,
-                entity_type,
-            } => {
-                writeln!(f, "world.spawnEntity({},{entity_type})", point(coords)).unwrap();
-            }
-            Command::WorldGetEntityTypes => {
-                writeln!(f, "world.getEntityTypes()").unwrap();
-            }
-            Command::EntityGetName(entity_id) => {
-                writeln!(f, "entity.getName({entity_id})").unwrap();
-            }
-            Command::EntityGetDirection(entity_id) => {
-                writeln!(f, "entity.getDirection({entity_id})").unwrap();
-            }
-            Command::EntitySetDirection(entity_id, direction) => {
-                writeln!(f, "entity.setDirection({entity_id},{})", point(direction)).unwrap();
-            }
-            Command::EntityGetPitch(entity_id) => {
-                writeln!(f, "entity.getPitch({entity_id})").unwrap();
-            }
-            Command::EntitySetPitch(entity_id, pitch) => {
-                writeln!(f, "entity.setPitch({entity_id},{pitch})").unwrap();
-            }
-            Command::EntityGetRotation(entity_id) => {
-                writeln!(f, "entity.getRotation({entity_id})").unwrap();
-            }
-            Command::EntitySetRotation(entity_id, rotation) => {
-                writeln!(f, "entity.setRotation({entity_id},{rotation})").unwrap();
-            }
-            Command::EntityEventsClear(entity_id) => {
-                writeln!(f, "entity.events.clear({entity_id})").unwrap();
-            }
-            Command::EntityEventsBlockHits(entity_id) => {
-                writeln!(f, "entity.events.block.hits({entity_id})").unwrap();
-            }
-            Command::EntityEventsChatPosts(entity_id) => {
-                writeln!(f, "entity.events.chat.posts({entity_id})").unwrap();
-            }
-            Command::EntityEventsProjectileHits(entity_id) => {
-                writeln!(f, "entity.events.projectile.hits({entity_id})").unwrap();
-            }
-            Command::EntityGetEntities {
-                target,
-                distance,
-                entity_type,
-            } => {
-                writeln!(
-                    f,
-                    "entity.getEntities({target},{distance}{})",
-                    optional(entity_type, true)
-                )
-                .unwrap();
-            }
-            Command::EntityRemoveEntities {
-                target,
-                distance,
-                entity_type,
-            } => {
-                writeln!(
-                    f,
-                    "entity.removeEntities({target},{distance}{})",
-                    optional(entity_type, true)
-                )
-                .unwrap();
-            }
-            Command::PlayerGetAbsPos => {
-                writeln!(f, "player.getAbsPos()").unwrap();
-            }
-            Command::PlayerSetAbsPos(pos) => {
-                writeln!(f, "player.setAbsPos({})", point(pos)).unwrap();
-            }
-            Command::PlayerGetDirection => {
-                writeln!(f, "player.getDirection()").unwrap();
-            }
-            Command::PlayerSetDirection(direction) => {
-                writeln!(f, "player.setDirection({})", point(direction)).unwrap();
-            }
-            Command::PlayerGetRotation => {
-                writeln!(f, "player.getRotation()").unwrap();
-            }
-            Command::PlayerSetRotation(rotation) => {
-                writeln!(f, "player.setRotation({rotation})").unwrap();
-            }
-            Command::PlayerGetPitch => {
-                writeln!(f, "player.getPitch()").unwrap();
-            }
-            Command::PlayerSetPitch(pitch) => {
-                writeln!(f, "player.setPitch({pitch})").unwrap();
-            }
-            Command::PlayerEventsClear => {
-                writeln!(f, "player.events.clear()").unwrap();
-            }
-            Command::PlayerEventsBlockHits => {
-                writeln!(f, "player.events.block.hits()").unwrap();
-            }
-            Command::PlayerEventsChatPosts => {
-                writeln!(f, "player.events.chat.posts()").unwrap();
-            }
-            Command::PlayerEventsProjectileHits => {
-                writeln!(f, "player.events.projectile.hits()").unwrap();
-            }
-            Command::PlayerGetEntities {
-                distance,
-                entity_type,
-            } => {
-                writeln!(
-                    f,
-                    "player.getEntities({distance}{})",
-                    optional(entity_type, true)
-                )
-                .unwrap();
-            }
-            Command::PlayerRemoveEntities {
-                distance,
-                entity_type,
-            } => {
-                writeln!(
-                    f,
-                    "player.removeEntities({distance}{})",
-                    optional(entity_type, true)
-                )
-                .unwrap();
-            }
-            Command::EventsChatPosts => {
-                writeln!(f, "events.chat.posts()").unwrap();
-            }
-            Command::EventsProjectileHits => {
-                writeln!(f, "events.projectile.hits()").unwrap();
-            }
-            Command::EventsBlockHits => {
-                writeln!(f, "events.block.hits()").unwrap();
-            }
-            Command::EventsClear => {
-                writeln!(f, "events.clear()").unwrap();
-            }
-            Command::CustomLogDebug(message) => {
-                writeln!(f, "custom.log.debug({message})").unwrap();
-            }
-            Command::CustomLogInfo(message) => {
-                writeln!(f, "custom.log.info({message})").unwrap();
-            }
-            Command::CustomLogWarn(message) => {
-                writeln!(f, "custom.log.warn({message})").unwrap();
-            }
-            Command::CustomLogErr(message) => {
-                writeln!(f, "custom.log.err({message})").unwrap();
-            }
-            Command::CustomInventoryGetSlot => {
-                writeln!(f, "custom.inventory.getSlot()").unwrap();
-            }
-            Command::CustomInventoryUnsafeGive {
-                id,
-                auxillary,
-                count,
-            } => {
-                writeln!(
-                    f,
-                    "custom.inventory.unsafeGive({},{},{})",
-                    optional(id, false),
-                    optional(auxillary, true),
-                    optional(count, true)
-                )
-                .unwrap();
-            }
-            Command::CustomInventoryGive {
-                id,
-                auxillary,
-                count,
-            } => {
-                writeln!(
-                    f,
-                    "custom.inventory.give({},{},{})",
-                    optional(id, false),
-                    optional(auxillary, true),
-                    optional(count, true)
-                )
-                .unwrap();
-            }
-            Command::CustomOverrideReset => {
-                writeln!(f, "custom.override.reset()").unwrap();
-            }
-            Command::CustomOverride { before, after } => {
-                writeln!(f, "custom.override({before},{after})").unwrap();
-            }
-            Command::CustomPostClient(message) => {
-                writeln!(f, "custom.post.client({message})").unwrap();
-            }
-            Command::CustomPostNoPrefix(message) => {
-                writeln!(f, "custom.post.noPrefix({message})").unwrap();
-            }
-            Command::CustomKeyPress(key) => {
-                writeln!(f, "custom.key.press({key})").unwrap();
-            }
-            Command::CustomKeyRelease(key) => {
-                writeln!(f, "custom.key.release({key})").unwrap();
-            }
-            Command::CustomUsernameAll => {
-                writeln!(f, "custom.username.all()").unwrap();
-            }
-            Command::CustomWorldParticle { particle, coords } => {
-                writeln!(f, "custom.world.particle({particle},{})", point(coords)).unwrap();
-            }
-            Command::CustomWorldDir => {
-                writeln!(f, "custom.world.dir()").unwrap();
-            }
-            Command::CustomWorldName => {
-                writeln!(f, "custom.world.name()").unwrap();
-            }
-            Command::CustomWorldServername => {
-                writeln!(f, "custom.world.servername()").unwrap();
-            }
-            Command::CustomPlayerGetHealth => {
-                writeln!(f, "custom.player.getHealth()").unwrap();
-            }
-            Command::CustomPlayerSetHealth(health) => {
-                writeln!(f, "custom.player.setHealth({health})").unwrap();
-            }
-            Command::CustomPlayerCloseGUI => {
-                writeln!(f, "custom.player.closeGUI()").unwrap();
-            }
-            Command::CustomPlayerGetGamemode => {
-                writeln!(f, "custom.player.getGamemode()").unwrap();
-            }
-            Command::CustomEntitySpawn {
-                entity_type,
-                health,
-                coords,
-                direction,
-            } => {
-                writeln!(
-                    f,
-                    "custom.entity.spawn({},{},{},{},{})",
-                    entity_type.0,
-                    point(coords),
-                    health,
-                    point(direction),
-                    entity_type.1
-                )
-                .unwrap();
-            }
-            Command::CustomEntitySetAge { entity_id, age } => {
-                writeln!(f, "custom.entity.setAge({entity_id},{age})").unwrap();
-            }
-            Command::CustomEntitySetSheepColor { entity_id, color } => {
-                writeln!(f, "custom.entity.setSheepColor({entity_id},{color})").unwrap();
-            }
-            Command::EventsChatSize => {
-                writeln!(f, "events.chat.size()").unwrap();
-            }
-            Command::CustomRebornVersion => {
-                writeln!(f, "custom.reborn.version()").unwrap();
-            }
-            Command::CustomRebornFeature(feature) => {
-                writeln!(f, "custom.reborn.feature({feature})").unwrap();
-            }
-            Command::EntityGetAllEntities => {
-                writeln!(f, "entity.getAllEntities()").unwrap();
-            }
-            Command::WorldGetBlocksWithData { coords_1, coords_2 } => {
-                writeln!(
-                    f,
-                    "world.getBlocksWithData({},{})",
-                    point(coords_1),
-                    point(coords_2)
-                )
-                .unwrap();
-            }
-            Command::BlockGetLightLevel { tile: block } => {
-                writeln!(f, "block.getLightLevel({block})").unwrap();
-            }
-            Command::BlockSetLightLevel { tile: block, level } => {
-                writeln!(f, "block.setLightLevel({block},{level})").unwrap();
-            }
-            Command::EntitySetDimension {
-                entity_id,
-                dimension,
-            } => {
-                writeln!(f, "entity.setDimension({entity_id},{dimension})").unwrap();
-            }
-            Command::EntityGetNameAndUUID(entity_id) => {
-                writeln!(f, "entity.getNameAndUUID({entity_id})").unwrap();
-            }
-            Command::RaspberryJamWorldSpawnEntity {
-                entity_type,
-                coords,
-                json_nbt,
-            } => {
-                writeln!(
-                    f,
-                    "world.spawnEntity({entity_type},{}{})",
-                    point(coords),
-                    optional(json_nbt, true)
-                )
-                .unwrap();
-            }
-            Command::PlayerSetDimension { dimension } => {
-                writeln!(f, "player.setDimension({dimension})").unwrap();
-            }
-            Command::PlayerGetNameAndUUID => {
-                writeln!(f, "player.getNameAndUUID()").unwrap();
-            }
-            Command::CameraGetEntityId => {
-                writeln!(f, "camera.getEntityId()").unwrap();
-            }
-            Command::CameraSetFollow { target } => {
-                writeln!(f, "camera.setFollow({})", optional(target, false)).unwrap();
-            }
-            Command::CameraSetNormal { target } => {
-                writeln!(f, "camera.setNormal({})", optional(target, false)).unwrap();
-            }
-            Command::CameraSetThirdPerson { target } => {
-                writeln!(f, "camera.setThirdPerson({})", optional(target, false)).unwrap();
-            }
-            Command::CameraSetDebug => {
-                writeln!(f, "camera.setDebug()").unwrap();
-            }
-            Command::CameraSetDistance(distance) => {
-                writeln!(f, "camera.setDistance({distance})").unwrap();
-            }
-            Command::WorldSpawnParticle {
-                particle,
-                coords,
-                direction,
-                speed,
-                count,
-            } => {
-                writeln!(
-                    f,
-                    "world.spawnParticle({particle},{},{},{},{})",
-                    point(coords),
-                    point(direction),
-                    speed,
-                    count
-                )
-                .unwrap();
-            }
-        };
-
-        f
+    #[derive(Debug)]
+    pub struct ChatPost {
+        pub message: ChatString,
     }
 
-    fn has_response(&self) -> bool {
-        match self {
-            Self::CameraModeSetFixed
-            | Self::CameraModeSetFollow { .. }
-            | Self::CameraModeSetNormal { .. }
-            | Self::CameraModeSetThirdPerson { .. }
-            | Self::CameraSetPos(_)
-            | Self::ChatPost(_)
-            | Self::EntitySetPos(_, _)
-            | Self::EntitySetTile(_, _)
-            | Self::PlayerSetPos(_)
-            | Self::PlayerSetTile(_)
-            | Self::PlayerSetting { .. }
-            | Self::WorldCheckpointRestore
-            | Self::WorldCheckpointSave
-            | Self::WorldSetBlock { .. }
-            | Self::WorldSetBlocks { .. }
-            | Self::WorldSetting { .. }
-            | Self::WorldSetSign { .. }
-            | Self::EntitySetDirection(..)
-            | Self::EntitySetRotation(..)
-            | Self::EntitySetPitch(..)
-            | Self::EntityEventsClear(..)
-            | Self::PlayerSetAbsPos(..)
-            | Self::PlayerSetDirection(..)
-            | Self::PlayerSetPitch(..)
-            | Self::PlayerEventsClear
-            | Self::EventsClear
-            | Self::CustomLogDebug(..)
-            | Self::CustomLogInfo(..)
-            | Self::CustomLogWarn(..)
-            | Self::CustomLogErr(..)
-            | Self::CustomInventoryUnsafeGive { .. }
-            | Self::CustomInventoryGive { .. }
-            | Self::CustomOverrideReset
-            | Self::CustomOverride { .. }
-            | Self::CustomPostClient(..)
-            | Self::CustomPostNoPrefix(..)
-            | Self::CustomKeyPress(..)
-            | Self::CustomKeyRelease(..)
-            | Self::CustomWorldParticle { .. }
-            | Self::CustomPlayerSetHealth(..)
-            | Self::CustomPlayerCloseGUI
-            | Self::CustomEntitySetAge { .. }
-            | Self::CustomEntitySetSheepColor { .. }
-            | Self::PlayerSetRotation(..)
-            | Self::WorldSpawnParticle { .. }
-            | Self::BlockSetLightLevel { .. }
-            | Self::EntitySetDimension { .. }
-            | Self::PlayerSetDimension { .. }
-            | Self::CameraSetFollow { .. }
-            | Self::CameraSetNormal { .. }
-            | Self::CameraSetThirdPerson { .. }
-            | Self::CameraSetDebug
-            | Self::CameraSetDistance(..) => false,
+    // Camera APIs
 
-            Self::EntityGetPos(_)
-            | Self::EntityGetTile(_)
-            | Self::PlayerGetPos
-            | Self::PlayerGetTile
-            | Self::WorldGetBlock(_)
-            | Self::WorldGetBlocks(_, _)
-            | Self::WorldGetBlockWithData(_)
-            | Self::WorldGetHeight(_)
-            | Self::WorldGetPlayerIds
-            | Self::RaspberryJuiceWorldSpawnEntity { .. }
-            | Self::RaspberryJamWorldSpawnEntity { .. }
-            | Self::WorldGetEntities(..)
-            | Self::WorldGetPlayerId(..)
-            | Self::WorldRemoveEntities(..)
-            | Self::WorldRemoveEntity(..)
-            | Self::WorldGetEntityTypes
-            | Self::EntityGetName(..)
-            | Self::EntityGetDirection(..)
-            | Self::EntityGetPitch(..)
-            | Self::EntityGetRotation(..)
-            | Self::EntityEventsBlockHits(..)
-            | Self::EntityEventsChatPosts(..)
-            | Self::EntityEventsProjectileHits(..)
-            | Self::EntityGetEntities { .. }
-            | Self::EntityRemoveEntities { .. }
-            | Self::PlayerGetAbsPos
-            | Self::PlayerGetDirection
-            | Self::PlayerGetRotation
-            | Self::PlayerGetPitch
-            | Self::PlayerGetEntities { .. }
-            | Self::PlayerRemoveEntities { .. }
-            | Self::PlayerEventsBlockHits
-            | Self::PlayerEventsChatPosts
-            | Self::PlayerEventsProjectileHits
-            | Self::EventsChatPosts
-            | Self::EventsProjectileHits
-            | Self::EventsBlockHits
-            | Self::CustomInventoryGetSlot
-            | Self::CustomUsernameAll
-            | Self::CustomWorldDir
-            | Self::CustomWorldName
-            | Self::CustomWorldServername
-            | Self::CustomPlayerGetHealth
-            | Self::CustomPlayerGetGamemode
-            | Self::CustomEntitySpawn { .. }
-            | Self::EventsChatSize
-            | Self::CustomRebornVersion
-            | Self::CustomRebornFeature(..)
-            | Self::EntityGetAllEntities
-            | Self::WorldGetBlocksWithData { .. }
-            | Self::BlockGetLightLevel { .. }
-            | Self::EntityGetNameAndUUID(..)
-            | Self::PlayerGetNameAndUUID
-            | Self::CameraGetEntityId => true,
-        }
-    }
+    // // Chat APIs
+    // // Entity APIs
+    // EntityGetPos(EntityId),
+    // EntityGetTile(EntityId),
+    // EntitySetPos(EntityId, Point3<f64>),
+    // EntitySetTile(EntityId, Point3<i16>),
+    // // Player APIs
+    // PlayerGetPos,
+    // PlayerGetTile,
+    // PlayerSetPos(Point3<f64>),
+    // PlayerSetTile(Point3<i16>),
+    // PlayerSetting {
+    //     key: PlayerSettingKey<'a>,
+    //     value: bool,
+    // },
+    // // World APIs
+    // WorldCheckpointRestore,
+    // WorldCheckpointSave,
+    // WorldGetBlock(Point3<i16>),
+    // /// Has Raspberry Jam mod extension to get block with NBT data. Requires a world setting to be set.
+    // /// TODO: look into this
+    // WorldGetBlockWithData(Point3<i16>),
+    // WorldGetHeight(Point2<i16>),
+    // WorldGetPlayerIds,
+    // WorldSetBlock {
+    //     coords: Point3<i16>,
+    //     tile: Tile,
+    //     data: TileData,
+    //     /// Raspberry Jam mod extension to set block with NBT data.
+    //     ///
+    //     /// Set to [`None`] when using other servers.
+    //     json_nbt: Option<ApiStr<'a>>,
+    // },
+    // WorldSetBlocks {
+    //     coords_1: Point3<i16>,
+    //     coords_2: Point3<i16>,
+    //     tile: Tile,
+    //     data: TileData,
+    //     /// Raspberry Jam mod extension to add NBT data to the blocks being set.
+    //     ///
+    //     /// Set to [`None`] when using other servers.
+    //     json_nbt: Option<ApiStr<'a>>,
+    // },
+    // WorldSetting {
+    //     key: WorldSettingKey<'a>,
+    //     value: bool,
+    // },
+    // // Event APIs
+    // EventsClear,
+    // EventsBlockHits,
+
+    // // # Raspberry Juice (& Raspberry Jam) Extensions
+    // // https://dev.bukkit.org/projects/raspberryjuice
+
+    // // World APIs
+    // WorldGetBlocks(Point3<i16>, Point3<i16>),
+    // /// When using the Raspberry Jam mod, this can be set to [`None`] to get the current player's ID.
+    // WorldGetPlayerId(Option<ApiStr<'a>>),
+    // WorldGetEntities(Option<JavaEntityType>),
+    // WorldRemoveEntity(EntityId),
+    // WorldRemoveEntities(Option<JavaEntityType>),
+    // WorldSetSign {
+    //     coords: Point3<i16>,
+    //     tile: Tile,
+    //     data: TileData,
+    //     lines: Vec<ApiStr<'a>>,
+    // },
+    // RaspberryJuiceWorldSpawnEntity {
+    //     coords: Point3<f64>,
+    //     entity_type: JavaEntityType,
+    // },
+    // WorldGetEntityTypes,
+
+    // // Entity APIs
+    // EntityGetName(EntityId),
+    // EntityGetDirection(EntityId),
+    // EntitySetDirection(EntityId, Point3<f64>),
+    // EntityGetPitch(EntityId),
+    // EntitySetPitch(EntityId, f32),
+    // EntityGetRotation(EntityId),
+    // EntitySetRotation(EntityId, f32),
+    // EntityEventsClear(EntityId),
+    // EntityEventsBlockHits(EntityId),
+    // EntityEventsChatPosts(EntityId),
+    // EntityEventsProjectileHits(EntityId),
+    // EntityGetEntities {
+    //     target: EntityId,
+    //     distance: i32,
+    //     entity_type: Option<JavaEntityType>,
+    // },
+    // EntityRemoveEntities {
+    //     target: EntityId,
+    //     distance: i32,
+    //     entity_type: Option<JavaEntityType>,
+    // },
+
+    // // Player APIs
+    // PlayerGetAbsPos,
+    // PlayerSetAbsPos(Point3<f64>),
+    // PlayerSetDirection(Point3<f64>),
+    // PlayerGetDirection,
+    // PlayerSetRotation(f32),
+    // PlayerGetRotation,
+    // PlayerSetPitch(f32),
+    // PlayerGetPitch,
+    // PlayerEventsClear,
+    // PlayerEventsBlockHits,
+    // PlayerEventsChatPosts,
+    // PlayerEventsProjectileHits,
+    // PlayerGetEntities {
+    //     distance: i32,
+    //     entity_type: Option<JavaEntityType>,
+    // },
+    // PlayerRemoveEntities {
+    //     distance: i32,
+    //     entity_type: Option<JavaEntityType>,
+    // },
+
+    // // Events APIs
+    // EventsChatPosts,
+    // EventsProjectileHits,
+
+    // // # MCPI Addons mod by Bigjango13
+    // // https://github.com/Bigjango13/MCPI-Addons
+
+    // // Custom Log APIs
+    // CustomLogDebug(ApiStr<'a>),
+    // CustomLogInfo(ApiStr<'a>),
+    // CustomLogWarn(ApiStr<'a>),
+    // CustomLogErr(ApiStr<'a>),
+
+    // // Custom Inventory APIs
+    // CustomInventoryGetSlot,
+    // CustomInventoryUnsafeGive {
+    //     id: Option<i32>,
+    //     auxillary: Option<i32>,
+    //     count: Option<i32>,
+    // },
+    // CustomInventoryGive {
+    //     id: Option<i32>,
+    //     auxillary: Option<i32>,
+    //     count: Option<i32>,
+    // },
+
+    // // Custom Override APIs
+    // CustomOverrideReset,
+    // CustomOverride {
+    //     before: Tile,
+    //     after: Tile,
+    // },
+
+    // // Custom Post APIs
+    // CustomPostClient(ApiStr<'a>),
+    // CustomPostNoPrefix(ApiStr<'a>),
+
+    // // Custom Key APIs
+    // CustomKeyPress(MCPIExtrasKey<'a>),
+    // CustomKeyRelease(MCPIExtrasKey<'a>),
+
+    // // Custom Username APIs
+    // CustomUsernameAll,
+
+    // // Custom World API
+    // CustomWorldParticle {
+    //     particle: MCPIExtrasParticle<'a>,
+    //     coords: Point3<f32>,
+    // },
+    // CustomWorldDir,
+    // CustomWorldName,
+    // CustomWorldServername,
+
+    // // Custom Player APIs
+    // CustomPlayerGetHealth,
+    // CustomPlayerSetHealth(i32),
+    // CustomPlayerCloseGUI,
+    // CustomPlayerGetGamemode,
+
+    // // Custom Entity APIs
+    // CustomEntitySpawn {
+    //     entity_type: MCPIExtrasEntityType,
+    //     health: i32,
+    //     coords: Point3<f32>,
+    //     direction: Point2<f32>, // TODO: is this the most correct type?
+    // },
+    // CustomEntitySetAge {
+    //     entity_id: EntityId,
+    //     age: i32,
+    // },
+    // CustomEntitySetSheepColor {
+    //     entity_id: EntityId,
+    //     color: SheepColor,
+    // },
+
+    // // Chat Events APIs
+    // EventsChatSize,
+
+    // // Custom Reborn APIs
+    // CustomRebornVersion,
+    // CustomRebornFeature(ApiStr<'a>),
+
+    // // Entity APIs
+    // EntityGetAllEntities,
+
+    // // # Raspbery Jam mod
+    // // https://github.com/arpruss/raspberryjammod
+
+    // // World APIs
+    // /// Has extension to get block with NBT data. Requires a world setting to be set.
+    // WorldGetBlocksWithData {
+    //     coords_1: Point3<i16>,
+    //     coords_2: Point3<i16>,
+    // },
+    // WorldSpawnParticle {
+    //     particle: RaspberryJamParticle<'a>,
+    //     coords: Point3<f64>,
+    //     direction: Point3<f64>, // TODO: Unclear how to use this
+    //     speed: f64,
+    //     count: i32,
+    // },
+
+    // // Block APIs
+    // BlockGetLightLevel {
+    //     tile: Tile,
+    // },
+    // BlockSetLightLevel {
+    //     tile: Tile,
+    //     level: f32,
+    // },
+
+    // // Entity APIs
+    // EntitySetDimension {
+    //     entity_id: EntityId,
+    //     dimension: Dimension,
+    // },
+    // EntityGetNameAndUUID(EntityId),
+    // RaspberryJamWorldSpawnEntity {
+    //     entity_type: JavaEntityType,
+    //     coords: Point3<f64>,
+    //     json_nbt: Option<ApiStr<'a>>,
+    // },
+
+    // // Player APIs
+    // PlayerSetDimension {
+    //     dimension: Dimension,
+    // },
+    // PlayerGetNameAndUUID,
+
+    // // Camera APIs
+    // CameraGetEntityId,
+    // CameraSetFollow {
+    //     target: Option<EntityId>,
+    // },
+    // CameraSetNormal {
+    //     target: Option<EntityId>,
+    // },
+    // CameraSetThirdPerson {
+    //     target: Option<EntityId>,
+    // },
+    // CameraSetDebug,
+    // CameraSetDistance(f32),
 }
 
-impl From<&Command<'_>> for Vec<u8> {
-    fn from(value: &Command<'_>) -> Self {
-        value.to_command_bytes()
+/// A string that does not contain the LF (line feed) character.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(transparent)]
+pub struct ApiStr<'a>(pub &'a str);
+
+impl<'a> Display for ApiStr<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.0.contains('\n') {
+            return Err(std::fmt::Error);
+        }
+        Display::fmt(&self.0, f)
     }
 }
 
@@ -1862,60 +1416,6 @@ impl From<&Command<'_>> for Vec<u8> {
 #[derive(Debug, Snafu)]
 #[snafu(display("String must not contain LF characters."))]
 pub struct NewlineStrError;
-
-/// A string that does not contain the LF (line feed) character.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[repr(transparent)]
-pub struct ApiStr<'a>(&'a str);
-
-impl<'a> Deref for ApiStr<'a> {
-    type Target = &'a str;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<'a> Display for ApiStr<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Display::fmt(&self.0, f)
-    }
-}
-
-impl<'a> ApiStr<'a> {
-    pub const AUTOJUMP: Self = Self("autojump");
-
-    /// Creates a new ApiString from the given string.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the string contains a LF (line feed) character.
-    pub fn new(inner: &'a str) -> Result<Self, NewlineStrError> {
-        if inner.contains('\n') {
-            NewlineStrSnafu.fail()
-        } else {
-            Ok(Self(inner))
-        }
-    }
-
-    /// Creates a new ApiString from the given string without checking for LF characters.
-    ///
-    /// # Safety
-    ///
-    /// The string must not contain LF (line feed) characters.
-    #[must_use]
-    pub const unsafe fn new_unchecked(inner: &'a str) -> Self {
-        Self(inner)
-    }
-}
-
-impl<'a> TryFrom<&'a str> for ApiStr<'a> {
-    type Error = NewlineStrError;
-
-    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
-        Self::new(value)
-    }
-}
 
 #[derive(Debug, Snafu)]
 pub enum ChatStringError {
@@ -2075,7 +1575,7 @@ impl Default for ConnectOptions {
 pub trait Protocol: Debug {
     /// Sends a command to the server and returns its response.
     ///
-    /// If the command does not expect a response (as determined by [`SerializableCommand::has_response`])
+    /// If the command does not expect a response (as determined by [`Serializablehas_response`])
     /// and the [`ConnectOptions::always_wait_for_response`] option is not enabled,
     /// an empty string is returned without waiting for the server to respond.
     ///
@@ -2177,11 +1677,11 @@ impl ServerConnection {
         Some(frame)
     }
 
-    pub async fn send(
+    pub async fn send<T: SerializableCommand>(
         &mut self,
-        command: impl SerializableCommand,
+        command: T,
     ) -> Result<String, ConnectionError> {
-        self.send_raw(&command.to_command_bytes(), command.has_response())
+        self.send_raw(&command.to_command_bytes(), T::HAS_RESPONSE)
             .await
     }
 
@@ -2218,28 +1718,18 @@ impl Protocol for ClonableConnection {
 
 #[cfg(test)]
 mod tests {
+    use commands::{ChatPost, PlayerSetPos};
+
     use super::*;
-
-    #[test]
-    fn api_str_accepts_valid_strings() {
-        let _ = super::ApiStr::new("hello").unwrap();
-    }
-
-    #[test]
-    fn api_str_rejects_invalid_strings() {
-        assert!(super::ApiStr::new("hello\n").is_err());
-    }
-
-    #[test]
-    const fn api_str_unchecked_accepts_invalid_strings() {
-        let _ = unsafe { super::ApiStr::new_unchecked("hello\n") };
-    }
 
     #[test]
     fn api_str_and_chat_string_allow_special_characters() {
         let string = ChatString::from_str_lossy("I am so happy ♥");
-        let command = Command::ChatPost(&string);
-        assert_eq!(Vec::from(&command), b"chat.post(I am so happy \x03\n");
+        let command = ChatPost { message: string };
+        assert_eq!(
+            command.to_command_bytes(),
+            b"chat.post(I am so happy \x03\n"
+        );
         let string = ApiStr::new("I am so happy ♥").unwrap();
         assert_eq!(string.to_string(), "I am so happy ♥");
     }
@@ -2247,9 +1737,9 @@ mod tests {
     #[test]
     fn chat_post_formatting() {
         let string = ChatString::from_str_lossy("Hello world. This is a \"quote.\" )");
-        let command = Command::ChatPost(&string);
+        let command = ChatPost(&string);
         assert_eq!(
-            Vec::from(&command),
+            command.to_command_bytes(),
             b"chat.post(Hello world. This is a \"quote.\" ))\n"
         );
     }
@@ -2257,67 +1747,73 @@ mod tests {
     #[test]
     fn command_point_large_values() {
         let vec = Point3::new(1e100, 2.0, 3.0);
-        let command = Command::PlayerSetPos(vec);
-        assert_eq!(Vec::from(&command), b"player.setPos(10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000,2,3)\n");
+        let command = PlayerSetPos { coords: vec };
+        assert_eq!(command.to_command_bytes(), b"player.setPos(10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000,2,3)\n");
     }
 
     #[test]
     fn command_point_serializes_f64_int() {
         let vec = Point3::new(1.0, 2.0, 3.0);
-        let command = Command::PlayerSetPos(vec);
-        assert_eq!(Vec::from(&command), b"player.setPos(1,2,3)\n");
+        let command = PlayerSetPos(vec);
+        assert_eq!(command.to_command_bytes(), b"player.setPos(1,2,3)\n");
     }
 
     #[test]
     fn command_point_serializes_f64_real() {
         let vec = Point3::new(1.5, 2.5, 3.5);
-        let command = Command::PlayerSetPos(vec);
-        assert_eq!(Vec::from(&command), b"player.setPos(1.5,2.5,3.5)\n");
+        let command = PlayerSetPos(vec);
+        assert_eq!(command.to_command_bytes(), b"player.setPos(1.5,2.5,3.5)\n");
     }
 
     #[test]
     fn command_point_serializes_i16() {
         let vec = Point3::new(1, 2, 3);
-        let command = Command::WorldGetBlock(vec);
-        assert_eq!(Vec::from(&command), b"world.getBlock(1,2,3)\n");
+        let command = WorldGetBlock(vec);
+        assert_eq!(command.to_command_bytes(), b"world.getBlock(1,2,3)\n");
     }
 
     #[test]
     fn command_point_serializes_i16_range() {
         let vec_1 = Point3::new(1, 2, 3);
         let vec_2 = Point3::new(4, 5, 6);
-        let command = Command::WorldGetBlocks(vec_1, vec_2);
-        assert_eq!(Vec::from(&command), b"world.getBlocks(1,2,3,4,5,6)\n");
+        let command = WorldGetBlocks(vec_1, vec_2);
+        assert_eq!(
+            command.to_command_bytes(),
+            b"world.getBlocks(1,2,3,4,5,6)\n"
+        );
     }
 
     #[test]
     fn command_optionals_comma_ommitted_when_first_arg_none() {
-        let command = Command::CameraModeSetFollow { target: None };
-        assert_eq!(Vec::from(&command), b"camera.mode.setFollow()\n");
+        let command = CameraModeSetFollow { target: None };
+        assert_eq!(command.to_command_bytes(), b"camera.mode.setFollow()\n");
     }
 
     #[test]
     fn command_optionals_comma_ommitted_when_first_arg_some() {
-        let command = Command::CameraModeSetFollow {
+        let command = CameraModeSetFollow {
             target: Some(EntityId(1)),
         };
-        assert_eq!(Vec::from(&command), b"camera.mode.setFollow(1)\n");
+        assert_eq!(command.to_command_bytes(), b"camera.mode.setFollow(1)\n");
     }
 
     #[test]
     fn raspberry_jam_camera_apis_have_no_mode() {
-        let command = Command::CameraModeSetNormal { target: None };
-        assert_eq!(Vec::from(&command), b"camera.mode.setNormal()\n");
-        let command = Command::CameraSetNormal { target: None };
-        assert_eq!(Vec::from(&command), b"camera.setNormal()\n");
-        let command = Command::CameraModeSetThirdPerson { target: None };
-        assert_eq!(Vec::from(&command), b"camera.mode.setThirdPerson()\n");
-        let command = Command::CameraSetThirdPerson { target: None };
-        assert_eq!(Vec::from(&command), b"camera.setThirdPerson()\n");
-        let command = Command::CameraModeSetFollow { target: None };
-        assert_eq!(Vec::from(&command), b"camera.mode.setFollow()\n");
-        let command = Command::CameraSetFollow { target: None };
-        assert_eq!(Vec::from(&command), b"camera.setFollow()\n");
+        let command = CameraModeSetNormal { target: None };
+        assert_eq!(command.to_command_bytes(), b"camera.mode.setNormal()\n");
+        let command = CameraSetNormal { target: None };
+        assert_eq!(command.to_command_bytes(), b"camera.setNormal()\n");
+        let command = CameraModeSetThirdPerson { target: None };
+        assert_eq!(
+            command.to_command_bytes(),
+            b"camera.mode.setThirdPerson()\n"
+        );
+        let command = CameraSetThirdPerson { target: None };
+        assert_eq!(command.to_command_bytes(), b"camera.setThirdPerson()\n");
+        let command = CameraModeSetFollow { target: None };
+        assert_eq!(command.to_command_bytes(), b"camera.mode.setFollow()\n");
+        let command = CameraSetFollow { target: None };
+        assert_eq!(command.to_command_bytes(), b"camera.setFollow()\n");
     }
 
     #[test]
