@@ -8,7 +8,7 @@
 //!
 
 use std::borrow::Cow;
-use std::fmt::{self, Debug, Display, Formatter};
+use std::fmt::{self, Debug, Formatter};
 use std::future::Future;
 use std::io::Write;
 use std::ops::Deref;
@@ -17,8 +17,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use commands::SerializableCommand;
-use derive_more::derive::{Deref, Display};
-use derive_more::AsRef;
+use derive_more::derive::Constructor;
+use derive_more::{AsRef, Display};
 use nalgebra::{Point, Point2, Point3, Scalar};
 use snafu::{Backtrace, OptionExt, Snafu};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufWriter};
@@ -525,7 +525,7 @@ impl JavaEntityType {
 }
 
 /// A key that can be automated (pressed and released) with the MCPI Addons API extension.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, AsRef)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, AsRef, Display)]
 #[as_ref(forward)]
 pub struct MCPIExtrasKey<'a>(pub ApiStr<'a>);
 
@@ -566,7 +566,7 @@ impl MCPIExtrasKey<'_> {
 ///
 /// This can be when creating a new Sheep entity with [`MCPIExtrasEntityType`].or when
 /// changing a sheep's color using [`CustomEntitySetSheepColor`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, AsRef, Display)]
 pub struct SheepColor(pub i32);
 
 impl SheepColor {
@@ -590,61 +590,100 @@ impl SheepColor {
 
 /// An entity type supported by the MCPI Addons API extension.
 ///
+/// See also: [MCPI Addons Reference Implementation](https://github.com/Bigjango13/MCPI-Addons/blob/05027ab7277d51c0dcdd93b58d2ddb66dfea92df/mcpi_addons/entity.py#L56-L100)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, AsRef, Display)]
+pub struct MCPIExtrasEntityType(pub i32);
+
+impl MCPIExtrasEntityType {
+    pub const CHICKEN: Self = Self(10);
+    pub const COW: Self = Self(11);
+    pub const PIG: Self = Self(12);
+    pub const SHEEP: Self = Self(13);
+    pub const ZOMBIE: Self = Self(32);
+    pub const CREEPER: Self = Self(33);
+    pub const SKELETON: Self = Self(34);
+    pub const SPIDER: Self = Self(35);
+    #[doc(alias = "ZOMBIE_PIGMAN")]
+    pub const PIG_ZOMBIE: Self = Self(36);
+    #[doc(alias("TILE", "ITEM_ENTITY"))]
+    pub const ITEM: Self = Self(64);
+    pub const TNT: Self = Self(65);
+    #[doc(alias("FALLING_BLOCK"))]
+    pub const FALLING_TILE: Self = Self(66);
+    pub const ARROW: Self = Self(80);
+    pub const SNOWBALL: Self = Self(81);
+    pub const EGG: Self = Self(82);
+    pub const PAINTING: Self = Self(83);
+}
+
+/// An entity type supported by the MCPI Addons API extension.
+///
 /// This type is primarily used by the [`CustomEntitySpawn`] API call
-/// while connected to a server with the MCPI Addons API extension.
+/// whilst connected to a server with the MCPI Addons API extension.
 ///
 /// The struct itself is an entity type and an entity data value. Entities which do not have a data value
 /// are available as associated constants, and ones that do have a data value can be created using one
 /// of the provided constructors.
 ///
 /// See also: [MCPI Addons Reference Implementation](https://github.com/Bigjango13/MCPI-Addons/blob/05027ab7277d51c0dcdd93b58d2ddb66dfea92df/mcpi_addons/entity.py#L56-L100)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct MCPIExtrasEntityType(pub i32, pub i32);
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Constructor)]
+pub struct MCPIExtrasEntityVariant {
+    pub entity: MCPIExtrasEntityType,
+    pub value: i32,
+}
 
-impl MCPIExtrasEntityType {
-    pub const CHICKEN: Self = Self(10, 0);
-    pub const COW: Self = Self(11, 0);
-    pub const PIG: Self = Self(12, 0);
-    pub const SHEEP: i32 = 13;
-    pub const ZOMBIE: Self = Self(32, 0);
-    pub const CREEPER: Self = Self(33, 0);
-    pub const SKELETON: Self = Self(34, 0);
-    pub const SPIDER: Self = Self(35, 0);
+impl MCPIExtrasEntityVariant {
+    pub const CHICKEN: Self = Self::new(MCPIExtrasEntityType::CHICKEN, 0);
+    pub const COW: Self = Self::new(MCPIExtrasEntityType::COW, 0);
+    pub const PIG: Self = Self::new(MCPIExtrasEntityType::PIG, 0);
+    pub const ZOMBIE: Self = Self::new(MCPIExtrasEntityType::ZOMBIE, 0);
+    pub const CREEPER: Self = Self::new(MCPIExtrasEntityType::CREEPER, 0);
+    pub const SKELETON: Self = Self::new(MCPIExtrasEntityType::SKELETON, 0);
+    pub const SPIDER: Self = Self::new(MCPIExtrasEntityType::SPIDER, 0);
     #[doc(alias = "ZOMBIE_PIGMAN")]
-    pub const PIG_ZOMBIE: Self = Self(36, 0);
-    #[doc(alias("TILE", "ITEM_ENTITY"))]
-    pub const ITEM: i32 = 64;
-    pub const TNT: i32 = 65;
-    #[doc(alias("FALLING_BLOCK"))]
-    pub const FALLING_TILE: i32 = 66;
-    pub const ARROW: i32 = 80;
-    pub const SNOWBALL: Self = Self(81, 0);
-    pub const EGG: Self = Self(82, 0);
-    pub const PAINTING: Self = Self(83, 0);
+    pub const PIG_ZOMBIE: Self = Self::new(MCPIExtrasEntityType::PIG_ZOMBIE, 0);
+    pub const SNOWBALL: Self = Self::new(MCPIExtrasEntityType::SNOWBALL, 0);
+    pub const EGG: Self = Self::new(MCPIExtrasEntityType::EGG, 0);
+    pub const PAINTING: Self = Self::new(MCPIExtrasEntityType::PAINTING, 0);
 
     /// Creates a new sheep entity type with the given color.
     pub const fn new_sheep(color: SheepColor) -> Self {
-        Self(Self::SHEEP, color.0)
+        Self {
+            entity: MCPIExtrasEntityType::SHEEP,
+            value: color.0,
+        }
     }
 
     /// Creates a new dropped item entity type of the given tile.
     pub const fn new_item(tile: Tile) -> Self {
-        Self(Self::ITEM, tile.0 as _)
+        Self {
+            entity: MCPIExtrasEntityType::ITEM,
+            value: tile.0 as _,
+        }
     }
 
     /// Creates a new falling tile entity type of the given tile.
     pub const fn new_falling_tile(tile: Tile) -> Self {
-        Self(Self::FALLING_TILE, tile.0 as _)
+        Self {
+            entity: MCPIExtrasEntityType::FALLING_TILE,
+            value: tile.0 as _,
+        }
     }
 
     /// Creates a new arrow entity that can optionally be a critical hit.
     pub const fn new_arrow(critical: bool) -> Self {
-        Self(Self::ARROW, critical as _)
+        Self {
+            entity: MCPIExtrasEntityType::ARROW,
+            value: critical as _,
+        }
     }
 
     /// Creates a new primed TNT entity that will explode after the given number of ticks.
     pub const fn tnt_from_ticks(ticks: i32) -> Self {
-        Self(Self::TNT, ticks) // TODO: verify time unit
+        Self {
+            entity: MCPIExtrasEntityType::TNT,
+            value: ticks,
+        } // TODO: verify time unit
     }
 
     /// Creates a new primed TNT entity that will explode after the given duration.
@@ -1134,40 +1173,73 @@ mod tests {
 
     #[test]
     fn mcpi_extras_entity_new_sheep() {
-        let entity = MCPIExtrasEntityType::new_sheep(SheepColor(1));
-        assert_eq!(entity, MCPIExtrasEntityType(MCPIExtrasEntityType::SHEEP, 1));
+        let entity = MCPIExtrasEntityVariant::new_sheep(SheepColor(1));
+        assert_eq!(
+            entity,
+            MCPIExtrasEntityVariant {
+                entity: MCPIExtrasEntityType::SHEEP,
+                value: 1
+            }
+        );
     }
 
     #[test]
     fn mcpi_extras_entity_new_arrow() {
-        let entity = MCPIExtrasEntityType::new_arrow(true);
-        assert_eq!(entity, MCPIExtrasEntityType(MCPIExtrasEntityType::ARROW, 1));
+        let entity = MCPIExtrasEntityVariant::new_arrow(true);
+        assert_eq!(
+            entity,
+            MCPIExtrasEntityVariant {
+                entity: MCPIExtrasEntityType::ARROW,
+                value: 1
+            }
+        );
     }
 
     #[test]
     fn mcpi_extras_entity_new_dropped_block() {
-        let entity = MCPIExtrasEntityType::new_item(Tile(1));
-        assert_eq!(entity, MCPIExtrasEntityType(MCPIExtrasEntityType::ITEM, 1));
+        let entity = MCPIExtrasEntityVariant::new_item(Tile(1));
+        assert_eq!(
+            entity,
+            MCPIExtrasEntityVariant {
+                entity: MCPIExtrasEntityType::ITEM,
+                value: 1
+            }
+        );
     }
 
     #[test]
     fn mcpi_extras_entity_new_falling_block() {
-        let entity = MCPIExtrasEntityType::new_falling_tile(Tile(1));
+        let entity = MCPIExtrasEntityVariant::new_falling_tile(Tile(1));
         assert_eq!(
             entity,
-            MCPIExtrasEntityType(MCPIExtrasEntityType::FALLING_TILE, 1)
+            MCPIExtrasEntityVariant {
+                entity: MCPIExtrasEntityType::FALLING_TILE,
+                value: 1
+            }
         );
     }
 
     #[test]
     fn mcpi_extras_entity_new_tnt_duration() {
-        let entity = MCPIExtrasEntityType::new_tnt(Duration::from_secs(1));
-        assert_eq!(entity, MCPIExtrasEntityType(MCPIExtrasEntityType::TNT, 20));
+        let entity = MCPIExtrasEntityVariant::new_tnt(Duration::from_secs(1));
+        assert_eq!(
+            entity,
+            MCPIExtrasEntityVariant {
+                entity: MCPIExtrasEntityType::TNT,
+                value: 20
+            }
+        );
     }
 
     #[test]
     fn mcpi_extras_entity_new_tnt_ticks() {
-        let entity = MCPIExtrasEntityType::tnt_from_ticks(1);
-        assert_eq!(entity, MCPIExtrasEntityType(MCPIExtrasEntityType::TNT, 1));
+        let entity = MCPIExtrasEntityVariant::tnt_from_ticks(1);
+        assert_eq!(
+            entity,
+            MCPIExtrasEntityVariant {
+                entity: MCPIExtrasEntityType::TNT,
+                value: 1
+            }
+        );
     }
 }

@@ -17,6 +17,7 @@ use nalgebra::{Point, Point2, Point3, Scalar};
 
 use super::{ApiStr, ChatString, EntityId, PlayerSettingKey, Tile, TileData, WorldSettingKey};
 
+pub mod mcpi_addons;
 pub mod raspberry_juice;
 
 /// Values implementing this trait are commands that can be serialized and sent to the Minecraft
@@ -286,87 +287,6 @@ impl SerializableCommand for ChatPost<'_> {
         buf
     }
 }
-
-// // # MCPI Addons mod by Bigjango13
-// // https://github.com/Bigjango13/MCPI-Addons
-
-// // Custom Log APIs
-// CustomLogDebug(ApiStr<'a>),
-// CustomLogInfo(ApiStr<'a>),
-// CustomLogWarn(ApiStr<'a>),
-// CustomLogErr(ApiStr<'a>),
-
-// // Custom Inventory APIs
-// CustomInventoryGetSlot,
-// CustomInventoryUnsafeGive {
-//     id: Option<i32>,
-//     auxillary: Option<i32>,
-//     count: Option<i32>,
-// },
-// CustomInventoryGive {
-//     id: Option<i32>,
-//     auxillary: Option<i32>,
-//     count: Option<i32>,
-// },
-
-// // Custom Override APIs
-// CustomOverrideReset,
-// CustomOverride {
-//     before: Tile,
-//     after: Tile,
-// },
-
-// // Custom Post APIs
-// CustomPostClient(ApiStr<'a>),
-// CustomPostNoPrefix(ApiStr<'a>),
-
-// // Custom Key APIs
-// CustomKeyPress(MCPIExtrasKey<'a>),
-// CustomKeyRelease(MCPIExtrasKey<'a>),
-
-// // Custom Username APIs
-// CustomUsernameAll,
-
-// // Custom World API
-// CustomWorldParticle {
-//     particle: MCPIExtrasParticle<'a>,
-//     coords: Point3<f32>,
-// },
-// CustomWorldDir,
-// CustomWorldName,
-// CustomWorldServername,
-
-// // Custom Player APIs
-// CustomPlayerGetHealth,
-// CustomPlayerSetHealth(i32),
-// CustomPlayerCloseGUI,
-// CustomPlayerGetGamemode,
-
-// // Custom Entity APIs
-// CustomEntitySpawn {
-//     entity_type: MCPIExtrasEntityType,
-//     health: i32,
-//     coords: Point3<f32>,
-//     direction: Point2<f32>, // TODO: is this the most correct type?
-// },
-// CustomEntitySetAge {
-//     entity_id: EntityId,
-//     age: i32,
-// },
-// CustomEntitySetSheepColor {
-//     entity_id: EntityId,
-//     color: SheepColor,
-// },
-
-// // Chat Events APIs
-// EventsChatSize,
-
-// // Custom Reborn APIs
-// CustomRebornVersion,
-// CustomRebornFeature(ApiStr<'a>),
-
-// // Entity APIs
-// EntityGetAllEntities,
 
 // // # Raspbery Jam mod
 // // https://github.com/arpruss/raspberryjammod
