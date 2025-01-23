@@ -17,6 +17,8 @@ use nalgebra::{Point, Point2, Point3, Scalar};
 
 use super::{ApiStr, ChatString, EntityId, PlayerSettingKey, Tile, TileData, WorldSettingKey};
 
+pub mod raspberry_juice;
+
 /// Values implementing this trait are commands that can be serialized and sent to the Minecraft
 /// game server.
 pub trait SerializableCommand {
@@ -27,6 +29,7 @@ pub trait SerializableCommand {
     fn to_command_bytes(&self) -> Vec<u8>;
 }
 
+#[macro_export]
 macro_rules! command_library {
     // Requests have a response from the server, while commands do not.
     (@packet_awaits_response req) => { true };
@@ -261,6 +264,10 @@ command_library!(
             key: WorldSettingKey<'a>,
             value: bool,
         }
+
+        // Event APIs
+        pub cmd EventsClear("events.clear()") {}
+        pub req EventsBlockHits("events.block.hits()") {}
     }
 );
 
@@ -279,81 +286,6 @@ impl SerializableCommand for ChatPost<'_> {
         buf
     }
 }
-
-// // Event APIs
-// EventsClear,
-// EventsBlockHits,
-
-// // # Raspberry Juice (& Raspberry Jam) Extensions
-// // https://dev.bukkit.org/projects/raspberryjuice
-
-// // World APIs
-// WorldGetBlocks(Point3<i16>, Point3<i16>),
-// /// When using the Raspberry Jam mod, this can be set to [`None`] to get the current player's ID.
-// WorldGetPlayerId(Option<ApiStr<'a>>),
-// WorldGetEntities(Option<JavaEntityType>),
-// WorldRemoveEntity(EntityId),
-// WorldRemoveEntities(Option<JavaEntityType>),
-// WorldSetSign {
-//     coords: Point3<i16>,
-//     tile: Tile,
-//     data: TileData,
-//     lines: Vec<ApiStr<'a>>,
-// },
-// RaspberryJuiceWorldSpawnEntity {
-//     coords: Point3<f64>,
-//     entity_type: JavaEntityType,
-// },
-// WorldGetEntityTypes,
-
-// // Entity APIs
-// EntityGetName(EntityId),
-// EntityGetDirection(EntityId),
-// EntitySetDirection(EntityId, Point3<f64>),
-// EntityGetPitch(EntityId),
-// EntitySetPitch(EntityId, f32),
-// EntityGetRotation(EntityId),
-// EntitySetRotation(EntityId, f32),
-// EntityEventsClear(EntityId),
-// EntityEventsBlockHits(EntityId),
-// EntityEventsChatPosts(EntityId),
-// EntityEventsProjectileHits(EntityId),
-// EntityGetEntities {
-//     target: EntityId,
-//     distance: i32,
-//     entity_type: Option<JavaEntityType>,
-// },
-// EntityRemoveEntities {
-//     target: EntityId,
-//     distance: i32,
-//     entity_type: Option<JavaEntityType>,
-// },
-
-// // Player APIs
-// PlayerGetAbsPos,
-// PlayerSetAbsPos(Point3<f64>),
-// PlayerSetDirection(Point3<f64>),
-// PlayerGetDirection,
-// PlayerSetRotation(f32),
-// PlayerGetRotation,
-// PlayerSetPitch(f32),
-// PlayerGetPitch,
-// PlayerEventsClear,
-// PlayerEventsBlockHits,
-// PlayerEventsChatPosts,
-// PlayerEventsProjectileHits,
-// PlayerGetEntities {
-//     distance: i32,
-//     entity_type: Option<JavaEntityType>,
-// },
-// PlayerRemoveEntities {
-//     distance: i32,
-//     entity_type: Option<JavaEntityType>,
-// },
-
-// // Events APIs
-// EventsChatPosts,
-// EventsProjectileHits,
 
 // // # MCPI Addons mod by Bigjango13
 // // https://github.com/Bigjango13/MCPI-Addons
@@ -497,6 +429,7 @@ impl SerializableCommand for ChatPost<'_> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::connection::JavaEntityType;
 
     #[test]
     fn chat_post_formatting() {
@@ -529,23 +462,26 @@ mod test {
         assert_eq!(command.to_command_bytes(), b"player.setPos(1.5,2.5,3.5)\n");
     }
 
-    // #[test]
-    // fn command_point_serializes_i16() {
-    //     let vec = Point3::new(1, 2, 3);
-    //     let command = WorldGetBlock { coords: vec };
-    //     assert_eq!(command.to_command_bytes(), b"world.getBlock(1,2,3)\n");
-    // }
+    #[test]
+    fn command_point_serializes_i16() {
+        let vec = Point3::new(1, 2, 3);
+        let command = WorldGetBlock { coords: vec };
+        assert_eq!(command.to_command_bytes(), b"world.getBlock(1,2,3)\n");
+    }
 
-    // #[test]
-    // fn command_point_serializes_i16_range() {
-    //     let vec_1 = Point3::new(1, 2, 3);
-    //     let vec_2 = Point3::new(4, 5, 6);
-    //     let command = WorldGetBlocks(vec_1, vec_2);
-    //     assert_eq!(
-    //         command.to_command_bytes(),
-    //         b"world.getBlocks(1,2,3,4,5,6)\n"
-    //     );
-    // }
+    #[test]
+    fn command_point_serializes_i16_range() {
+        let vec_1 = Point3::new(1, 2, 3);
+        let vec_2 = Point3::new(4, 5, 6);
+        let command = raspberry_juice::WorldGetBlocks {
+            coords_1: vec_1,
+            coords_2: vec_2,
+        };
+        assert_eq!(
+            command.to_command_bytes(),
+            b"world.getBlocks(1,2,3,4,5,6)\n"
+        );
+    }
 
     #[test]
     fn command_with_static_representation_serializes_to_vec() {
@@ -553,27 +489,40 @@ mod test {
         assert_eq!(command.to_command_bytes(), b"camera.mode.setFixed()\n");
     }
 
-    #[test]
-    fn command_optionals_comma_omitted_when_last_arg_none() {
-        let command = CameraModeSetFollow { target: None };
-        assert_eq!(command.to_command_bytes(), b"camera.mode.setFollow()\n");
-    }
+    mod optionals {
+        use super::*;
 
-    #[test]
-    fn command_optionals_comma_omitted_when_last_arg_some() {
-        let command = CameraModeSetFollow {
-            target: Some(EntityId(1)),
-        };
-        assert_eq!(command.to_command_bytes(), b"camera.mode.setFollow(1)\n");
-    }
+        #[test]
+        fn comma_omitted_when_last_arg_none() {
+            let command = CameraModeSetFollow { target: None };
+            assert_eq!(command.to_command_bytes(), b"camera.mode.setFollow()\n");
+        }
 
-    #[test]
-    #[ignore]
-    fn command_optionals_comma_included_when_first_arg_some() {
-        let command = CameraModeSetFollow {
-            target: Some(EntityId(1)),
-        };
-        assert_eq!(command.to_command_bytes(), b"camera.mode.setFollow(1)\n");
+        #[test]
+        fn comma_omitted_when_last_arg_some() {
+            let command = CameraModeSetFollow {
+                target: Some(EntityId(1)),
+            };
+            assert_eq!(command.to_command_bytes(), b"camera.mode.setFollow(1)\n");
+        }
+
+        #[test]
+        fn comma_omitted_when_first_arg_none() {
+            let command = raspberry_juice::PlayerGetEntities {
+                distance: 1,
+                entity_type: None,
+            };
+            assert_eq!(command.to_command_bytes(), b"player.getEntities(1)\n");
+        }
+
+        #[test]
+        fn comma_included_when_first_arg_some() {
+            let command = raspberry_juice::PlayerGetEntities {
+                distance: 1,
+                entity_type: Some(JavaEntityType(2)),
+            };
+            assert_eq!(command.to_command_bytes(), b"player.getEntities(1,2)\n");
+        }
     }
 
     // #[test]

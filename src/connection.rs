@@ -37,8 +37,7 @@ use crate::util::{Cp437String, CHAR_TO_CP437};
 /// Vanilla blocks are available as associated constants.
 ///
 /// See also: [Minecraft: Pi Edition Complete Block List](https://mcpirevival.miraheze.org/wiki/Minecraft:_Pi_Edition_Complete_Block_List)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, AsRef)]
-#[as_ref(forward)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
 pub struct Tile(pub u8);
 
 impl Tile {
@@ -137,11 +136,18 @@ impl Tile {
     pub const LEAVES_CARRIED: Self = Self(254);
     /// This tile is a duplicate of [`STONE`] with a different ID.
     pub const STONE_1: Self = Self(255);
+
+    pub const fn display(&self) -> TileDisplay {
+        TileDisplay(*self)
+    }
 }
 
-impl Display for Tile {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, AsRef)]
+pub struct TileDisplay(Tile);
+
+impl Display for TileDisplay {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match *self {
+        match *self.as_ref() {
             Tile::AIR => write!(f, "Air"),
             Tile::STONE => write!(f, "Stone"),
             Tile::GRASS_BLOCK => write!(f, "Grass Block"),
@@ -429,7 +435,7 @@ impl TileData {
 /// remove ones of a certain type, get a list of entities of a certain type, and so on.
 ///
 /// See also: [Raspberry Juice Reference Implementation](https://github.com/zhuowei/RaspberryJuice/blob/e8ef1bcd5aa07a1851d25de847c02e0a171d8a20/src/main/resources/mcpi/api/python/modded/mcpi/entity.py#L24-L102)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, AsRef)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, AsRef, Display)]
 #[repr(transparent)]
 pub struct JavaEntityType(pub i32);
 
@@ -1110,7 +1116,7 @@ impl Protocol for ClonableConnection {
 
 #[cfg(test)]
 mod tests {
-    use commands::{ChatPost, PlayerSetPos, *};
+    use commands::ChatPost;
 
     use super::*;
 

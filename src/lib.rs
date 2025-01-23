@@ -96,39 +96,39 @@ impl<T: Protocol + Clone> World<T> {
         Ok(Tile(ty.parse()?))
     }
 
-    // /// Gets the types and location offsets relative to `coords_0` of the blocks inclusively contained in the given cuboid.
-    // ///
-    // /// Raspberry Juice server only!
-    // pub async fn get_tiles(
-    //     &self,
-    //     coords_1: Point3<i16>,
-    //     coords_2: Point3<i16>,
-    // ) -> Result<Vec<(Tile, Point3<i16>)>> {
-    //     let blocks = self
-    //         .connection
-    //         .send(WorldGetBlocks { coords_1, coords_2 })
-    //         .await?;
+    /// Gets the types and location offsets relative to `coords_0` of the blocks inclusively contained in the given cuboid.
+    ///
+    /// Raspberry Juice server only!
+    pub async fn get_tiles(
+        &self,
+        coords_1: Point3<i16>,
+        coords_2: Point3<i16>,
+    ) -> Result<Vec<(Tile, Point3<i16>)>> {
+        let blocks = self
+            .connection
+            .send(raspberry_juice::WorldGetBlocks { coords_1, coords_2 })
+            .await?;
 
-    //     // Order: by z, then x, then y.
-    //     let x_len = coords_2.x - coords_1.x + 1;
-    //     let y_len = coords_2.y - coords_1.y + 1;
+        // Order: by z, then x, then y.
+        let x_len = coords_2.x - coords_1.x + 1;
+        let y_len = coords_2.y - coords_1.y + 1;
 
-    //     let blocks = blocks
-    //         .split(',')
-    //         .enumerate()
-    //         .map(|(idx, ty)| {
-    //             let tile = Tile(ty.parse()?);
-    //             let idx = idx as i16;
-    //             let z = idx / (x_len * y_len);
-    //             let x = (idx / y_len) % x_len;
-    //             let y = idx % y_len;
+        let blocks = blocks
+            .split(',')
+            .enumerate()
+            .map(|(idx, ty)| {
+                let tile = Tile(ty.parse()?);
+                let idx = idx as i16;
+                let z = idx / (x_len * y_len);
+                let x = (idx / y_len) % x_len;
+                let y = idx % y_len;
 
-    //             Ok::<_, WorldError>((tile, Point3::new(x, y, z)))
-    //         })
-    //         .collect::<Result<Vec<_>, _>>()?;
+                Ok::<_, WorldError>((tile, Point3::new(x, y, z)))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
 
-    //     Ok(blocks)
-    // }
+        Ok(blocks)
+    }
 
     /// Gets the type and metadata of the block at the given coordinates.
     pub async fn get_block(&self, coords: Point3<i16>) -> Result<Block> {
@@ -267,60 +267,60 @@ impl<T: Protocol + Clone> World<T> {
         self.set(WorldSettingKey::NAMETAGS_VISIBLE, enabled).await
     }
 
-    // /// Clears any pending events that have yet to be received.
-    // pub async fn clear_events(&mut self) -> Result<()> {
-    //     self.connection.send(EventsClear {}).await?;
-    //     Ok(())
-    // }
+    /// Clears any pending events that have yet to be received.
+    pub async fn clear_events(&mut self) -> Result<()> {
+        self.connection.send(EventsClear {}).await?;
+        Ok(())
+    }
 
-    // /// Polls for any block hits that have occurred since the last call to this method.
-    // pub async fn poll_block_hits(&self) -> Result<Vec<BlockHit>> {
-    //     let hits = self.connection.send(EventsBlockHits {}).await?;
-    //     hits.split('|')
-    //         .map(|hit| {
-    //             let mut hit = hit.split(',').map(i16::from_str);
-    //             Ok::<_, WorldError>(BlockHit {
-    //                 coords: Point3::new(
-    //                     hit.next().context(NotEnoughPartsSnafu)??,
-    //                     hit.next().context(NotEnoughPartsSnafu)??,
-    //                     hit.next().context(NotEnoughPartsSnafu)??,
-    //                 ),
-    //                 face: hit.next().context(NotEnoughPartsSnafu)??.try_into()?,
-    //                 player_id: EntityId(hit.next().context(NotEnoughPartsSnafu)??.into()),
-    //             })
-    //         })
-    //         .collect()
-    // }
+    /// Polls for any block hits that have occurred since the last call to this method.
+    pub async fn poll_block_hits(&self) -> Result<Vec<BlockHit>> {
+        let hits = self.connection.send(EventsBlockHits {}).await?;
+        hits.split('|')
+            .map(|hit| {
+                let mut hit = hit.split(',').map(i16::from_str);
+                Ok::<_, WorldError>(BlockHit {
+                    coords: Point3::new(
+                        hit.next().context(NotEnoughPartsSnafu)??,
+                        hit.next().context(NotEnoughPartsSnafu)??,
+                        hit.next().context(NotEnoughPartsSnafu)??,
+                    ),
+                    face: hit.next().context(NotEnoughPartsSnafu)??.try_into()?,
+                    player_id: EntityId(hit.next().context(NotEnoughPartsSnafu)??.into()),
+                })
+            })
+            .collect()
+    }
 
-    // /// Creates a stream of block hit events. If the connection's event queue is full, polls will not be sent.
-    // ///
-    // /// # Arguments
-    // ///
-    // /// * `interval` - The interval at which to poll for block hits.
-    // pub fn block_hits(&self, interval: Duration) -> impl Stream<Item = Result<BlockHit>> {
-    //     let world = self.clone();
-    //     async_stream::stream! {
-    //         let mut interval = tokio::time::interval(interval);
-    //         loop {
-    //             interval.tick().await;
-    //             let hits = match world.poll_block_hits().await {
-    //                 Ok(hits) => hits,
-    //                 Err(e) => match e {
-    //                     WorldError::Connection { source: ConnectionError::QueueFull { .. } } => {
-    //                         continue;
-    //                     }
-    //                     e => {
-    //                         yield Err(e);
-    //                         return;
-    //                     },
-    //                 }
-    //             };
-    //             for hit in hits {
-    //                 yield Ok(hit);
-    //             }
-    //         }
-    //     }
-    // }
+    /// Creates a stream of block hit events. If the connection's event queue is full, polls will not be sent.
+    ///
+    /// # Arguments
+    ///
+    /// * `interval` - The interval at which to poll for block hits.
+    pub fn block_hits(&self, interval: Duration) -> impl Stream<Item = Result<BlockHit>> {
+        let world = self.clone();
+        async_stream::stream! {
+            let mut interval = tokio::time::interval(interval);
+            loop {
+                interval.tick().await;
+                let hits = match world.poll_block_hits().await {
+                    Ok(hits) => hits,
+                    Err(e) => match e {
+                        WorldError::Connection { source: ConnectionError::QueueFull { .. } } => {
+                            continue;
+                        }
+                        e => {
+                            yield Err(e);
+                            return;
+                        },
+                    }
+                };
+                for hit in hits {
+                    yield Ok(hit);
+                }
+            }
+        }
+    }
 
     /// Disconnection from the world after ensuring all pending events are sent.
     pub async fn disconnect(self) -> Result<()> {
