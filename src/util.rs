@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::fmt::{Display, Write};
 use std::sync::LazyLock;
 
+use derive_more::derive::AsRef;
 use nalgebra::{Point, Scalar};
 
 use crate::{Result, WorldError};
@@ -51,7 +52,8 @@ pub static CHAR_TO_CP437: LazyLock<HashMap<char, u8>> = LazyLock::new(|| {
     map
 });
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default, AsRef)]
+#[as_ref(forward)]
 pub struct Cp437String<'a>(pub Cow<'a, [u8]>);
 
 impl<'a> Cp437String<'a> {
@@ -90,12 +92,6 @@ impl<'a> Display for Cp437String<'a> {
 impl From<Vec<u8>> for Cp437String<'static> {
     fn from(value: Vec<u8>) -> Self {
         Self(Cow::Owned(value))
-    }
-}
-
-impl<'a> AsRef<[u8]> for Cp437String<'a> {
-    fn as_ref(&self) -> &[u8] {
-        self.0.as_ref()
     }
 }
 

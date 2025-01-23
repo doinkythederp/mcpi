@@ -1,6 +1,7 @@
 use nalgebra::Point3;
 
-use crate::connection::{Command, EntityId, Protocol};
+use crate::connection::commands::*;
+use crate::connection::{EntityId, Protocol};
 use crate::Result;
 
 pub enum CameraMode {
@@ -21,46 +22,40 @@ impl<T: Protocol> Camera<T> {
     }
 
     pub async fn set_mode(&mut self, mode: CameraMode) -> Result {
-        let command = match mode {
-            CameraMode::Fixed => Command::CameraModeSetFixed,
-            CameraMode::Follow(target) => Command::CameraModeSetFollow { target },
-            CameraMode::Normal(target) => Command::CameraModeSetNormal { target },
-            CameraMode::ThirdPerson(target) => Command::CameraModeSetThirdPerson { target },
+        match mode {
+            CameraMode::Fixed => self.set_fixed().await?,
+            CameraMode::Follow(target) => self.set_follow(target).await?,
+            CameraMode::Normal(target) => self.set_normal(target).await?,
+            CameraMode::ThirdPerson(target) => self.set_third_person(target).await?,
         };
-
-        self.connection.send(command).await?;
         Ok(())
     }
 
     pub async fn set_fixed(&mut self) -> Result {
-        self.connection.send(Command::CameraModeSetFixed).await?;
+        self.connection.send(CameraModeSetFixed {}).await?;
         Ok(())
     }
 
     pub async fn set_follow(&mut self, target: Option<EntityId>) -> Result {
-        self.connection
-            .send(Command::CameraModeSetFollow { target })
-            .await?;
+        self.connection.send(CameraModeSetFollow { target }).await?;
         Ok(())
     }
 
     pub async fn set_normal(&mut self, target: Option<EntityId>) -> Result {
-        self.connection
-            .send(Command::CameraModeSetNormal { target })
-            .await?;
+        self.connection.send(CameraModeSetNormal { target }).await?;
         Ok(())
     }
 
     pub async fn set_third_person(&mut self, target: Option<EntityId>) -> Result {
         self.connection
-            .send(Command::CameraModeSetThirdPerson { target })
+            .send(CameraModeSetThirdPerson { target })
             .await?;
         Ok(())
     }
 
     pub async fn set_position(&mut self, position: Point3<f64>) -> Result {
         self.connection
-            .send(Command::CameraSetPos(position))
+            .send(CameraSetPos { coords: position })
             .await?;
         Ok(())
     }
