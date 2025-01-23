@@ -155,11 +155,17 @@ command_library!(
         pub req EntityGetTile("entity.getTile({target}") {
             target: EntityId,
         }
-        pub cmd EntitySetPos("entity.setPos({target},{coords})") {
+        pub cmd EntitySetPos(
+            "entity.setPos({target},{})",
+            point(coords),
+        ) {
             target: EntityId,
             coords: PosCoords,
         }
-        pub cmd EntitySetTile("entity.setTile({target},{coords})") {
+        pub cmd EntitySetTile(
+            "entity.setTile({target},{})",
+            point(coords),
+        ) {
             target: EntityId,
             coords: TileCoords,
         }
@@ -168,10 +174,16 @@ command_library!(
 
         pub req PlayerGetPos("player.getPos()") {}
         pub req PlayerGetTile("player.getTile()") {}
-        pub cmd PlayerSetPos("player.setTile({coords})") {
+        pub cmd PlayerSetPos(
+            "player.setPos({})",
+            point(coords),
+        ) {
             coords: Point3<f64>
         }
-        pub cmd PlayerSetTile("player.setTile({coords})") {
+        pub cmd PlayerSetTile(
+            "player.setTile({})",
+            point(coords),
+        ) {
             coords: Point3<i16>
         }
         pub cmd PlayerSetting(
@@ -193,7 +205,7 @@ impl SerializableCommand for ChatPost {
     const HAS_RESPONSE: bool = false;
     fn to_command_bytes(&self) -> Vec<u8> {
         let mut buf = Vec::new();
-        writeln!(buf, "chat.post(").unwrap();
+        write!(buf, "chat.post(").unwrap();
         buf.write_all(self.message.as_ref()).unwrap();
         writeln!(buf, ")").unwrap();
         buf
@@ -462,3 +474,105 @@ impl SerializableCommand for ChatPost {
 // },
 // CameraSetDebug,
 // CameraSetDistance(f32),
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn chat_post_formatting() {
+        let string = ChatString::from_str_lossy("Hello world. This is a \"quote.\" )");
+        let command = ChatPost { message: string };
+        assert_eq!(
+            command.to_command_bytes(),
+            b"chat.post(Hello world. This is a \"quote.\" ))\n"
+        );
+    }
+
+    #[test]
+    fn command_point_large_values() {
+        let vec = Point3::new(1e100, 2.0, 3.0);
+        let command = PlayerSetPos { coords: vec };
+        assert_eq!(command.to_command_bytes(), b"player.setPos(10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000,2,3)\n");
+    }
+
+    #[test]
+    fn command_point_serializes_f64_int() {
+        let vec = Point3::new(1.0, 2.0, 3.0);
+        let command = PlayerSetPos { coords: vec };
+        assert_eq!(command.to_command_bytes(), b"player.setPos(1,2,3)\n");
+    }
+
+    #[test]
+    fn command_point_serializes_f64_real() {
+        let vec = Point3::new(1.5, 2.5, 3.5);
+        let command = PlayerSetPos { coords: vec };
+        assert_eq!(command.to_command_bytes(), b"player.setPos(1.5,2.5,3.5)\n");
+    }
+
+    // #[test]
+    // fn command_point_serializes_i16() {
+    //     let vec = Point3::new(1, 2, 3);
+    //     let command = WorldGetBlock { coords: vec };
+    //     assert_eq!(command.to_command_bytes(), b"world.getBlock(1,2,3)\n");
+    // }
+
+    // #[test]
+    // fn command_point_serializes_i16_range() {
+    //     let vec_1 = Point3::new(1, 2, 3);
+    //     let vec_2 = Point3::new(4, 5, 6);
+    //     let command = WorldGetBlocks(vec_1, vec_2);
+    //     assert_eq!(
+    //         command.to_command_bytes(),
+    //         b"world.getBlocks(1,2,3,4,5,6)\n"
+    //     );
+    // }
+
+    #[test]
+    fn command_with_static_representation_serializes_to_vec() {
+        let command = CameraModeSetFixed {};
+        assert_eq!(command.to_command_bytes(), b"camera.mode.setFixed()\n");
+    }
+
+    #[test]
+    fn command_optionals_comma_omitted_when_last_arg_none() {
+        let command = CameraModeSetFollow { target: None };
+        assert_eq!(command.to_command_bytes(), b"camera.mode.setFollow()\n");
+    }
+
+    #[test]
+    fn command_optionals_comma_omitted_when_last_arg_some() {
+        let command = CameraModeSetFollow {
+            target: Some(EntityId(1)),
+        };
+        assert_eq!(command.to_command_bytes(), b"camera.mode.setFollow(1)\n");
+    }
+
+    #[test]
+    #[ignore]
+    fn command_optionals_comma_included_when_first_arg_some() {
+        let command = CameraModeSetFollow {
+            target: Some(EntityId(1)),
+        };
+        assert_eq!(command.to_command_bytes(), b"camera.mode.setFollow(1)\n");
+    }
+
+    // #[test]
+    // fn raspberry_jam_camera_apis_have_no_mode() {
+    //     let command = CameraModeSetNormal { target: None };
+    //     assert_eq!(command.to_command_bytes(), b"camera.mode.setNormal()\n");
+    //     let command = CameraSetNormal { target: None };
+    //     assert_eq!(command.to_command_bytes(), b"camera.setNormal()\n");
+    //     let command = CameraModeSetThirdPerson { target: None };
+    //     assert_eq!(
+    //         command.to_command_bytes(),
+    //         b"camera.mode.setThirdPerson()\n"
+    //     );
+    //     let command = CameraSetThirdPerson { target: None };
+    //     assert_eq!(command.to_command_bytes(), b"camera.setThirdPerson()\n");
+    //     let command = CameraModeSetFollow { target: None };
+    //     assert_eq!(command.to_command_bytes(), b"camera.mode.setFollow()\n");
+    //     let command = CameraSetFollow { target: None };
+    //     assert_eq!(command.to_command_bytes(), b"camera.setFollow()\n");
+    // }
+}
