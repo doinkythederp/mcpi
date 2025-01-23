@@ -13,9 +13,9 @@
 use std::fmt::{self, Display, Formatter};
 use std::io::Write;
 
-use nalgebra::{Point, Point3, Scalar};
+use nalgebra::{Point, Point2, Point3, Scalar};
 
-use super::{ChatString, EntityId, PlayerSettingKey};
+use super::{ApiStr, ChatString, EntityId, PlayerSettingKey, Tile, TileData, WorldSettingKey};
 
 /// Values implementing this trait are commands that can be serialized and sent to the Minecraft
 /// game server.
@@ -36,7 +36,7 @@ macro_rules! command_library {
         mod $lib_name:ident {
             $(
                 $(#[$packet_meta:meta])*
-                $vis:vis $packet_type:ident $packet_name:ident ($($fmt:tt)*) {
+                $vis:vis $packet_type:ident $packet_name:ident $(<$lt:lifetime>)? ($($fmt:tt)*) {
                     $(
                         $(#[$field_meta:meta])*
                         $field:ident : $type:ty
@@ -49,14 +49,14 @@ macro_rules! command_library {
         $(
             #[derive(Debug)]
             $(#[$packet_meta])*
-            $vis struct $packet_name {
+            $vis struct $packet_name $(<$lt>)? {
                 $(
                     $(#[$field_meta])*
                     pub $field: $type,
                 )*
             }
 
-            impl SerializableCommand for $packet_name {
+            impl $(<$lt>)? SerializableCommand for $packet_name $(<$lt>)? {
                 const HAS_RESPONSE: bool = command_library!(@packet_awaits_response $packet_type);
                 fn to_command_bytes(&self) -> Vec<u8> {
                     let mut buf = Vec::new();
@@ -84,10 +84,10 @@ pub fn optional<T: Display>(param: &Option<T>, comma_if_some: bool) -> impl Disp
     impl<T: Display> Display for MaybeField<'_, T> {
         fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
             if let Some(inner) = &self.param {
-                write!(f, "{inner}")?;
                 if self.comma_if_some {
                     write!(f, ",")?;
                 }
+                write!(f, "{inner}")?;
             }
             Ok(())
         }
@@ -186,22 +186,90 @@ command_library!(
         ) {
             coords: Point3<i16>
         }
-        pub cmd PlayerSetting(
+        pub cmd PlayerSetting<'a>(
             "player.setting({key},{})",
             *value as i32,
         ) {
-            key: PlayerSettingKey,
+            key: PlayerSettingKey<'a>,
+            value: bool,
+        }
+
+        // ## World APIs
+
+        pub cmd WorldCheckpointRestore("world.checkpoint.restore()") {}
+
+        pub cmd WorldCheckpointSave("world.checkpoint.save()") {}
+
+        pub req WorldGetBlock(
+            "world.getBlock({})",
+            point(coords),
+        ) {
+            coords: Point3<i16>
+        }
+
+        /// Has Raspberry Jam mod extension to get block with NBT data. Requires a world setting to be set.
+        /// TODO: look into this
+        pub req WorldGetBlockWithData(
+            "world.getBlockWithData({})",
+            point(coords),
+        ) {
+            coords: Point3<i16>,
+        }
+
+        pub req WorldGetHeight(
+            "world.getHeight({})",
+            point(coords),
+        ) {
+            coords: Point2<i16>,
+        }
+
+        pub req WorldGetPlayerIds("world.getPlayerIds()") {}
+
+        pub cmd WorldSetBlock<'a>(
+            "world.setBlock({},{tile},{data}{})",
+            point(coords),
+            optional(json_nbt, true),
+        ) {
+            coords: Point3<i16>,
+            tile: Tile,
+            data: TileData,
+            /// Raspberry Jam mod extension to set block with NBT data.
+            ///
+            /// Set to [`None`] when using other servers.
+            json_nbt: Option<ApiStr<'a>>,
+        }
+
+        pub cmd WorldSetBlocks<'a>(
+            "world.setBlocks({},{},{tile},{data}{})",
+            point(coords_1),
+            point(coords_2),
+            optional(json_nbt, true),
+        ) {
+            coords_1: Point3<i16>,
+            coords_2: Point3<i16>,
+            tile: Tile,
+            data: TileData,
+            /// Raspberry Jam mod extension to add NBT data to the blocks being set.
+            ///
+            /// Set to [`None`] when using other servers.
+            json_nbt: Option<ApiStr<'a>>,
+        }
+        pub cmd WorldSetting<'a>(
+            "world.setting({key},{})",
+            *value as i32,
+        ) {
+            key: WorldSettingKey<'a>,
             value: bool,
         }
     }
 );
 
 #[derive(Debug)]
-pub struct ChatPost {
-    pub message: ChatString,
+pub struct ChatPost<'a> {
+    pub message: ChatString<'a>,
 }
 
-impl SerializableCommand for ChatPost {
+impl SerializableCommand for ChatPost<'_> {
     const HAS_RESPONSE: bool = false;
     fn to_command_bytes(&self) -> Vec<u8> {
         let mut buf = Vec::new();
@@ -212,55 +280,6 @@ impl SerializableCommand for ChatPost {
     }
 }
 
-// Camera APIs
-
-// // Chat APIs
-// // Entity APIs
-// EntityGetPos(EntityId),
-// EntityGetTile(EntityId),
-// EntitySetPos(EntityId, Point3<f64>),
-// EntitySetTile(EntityId, Point3<i16>),
-// // Player APIs
-// PlayerGetPos,
-// PlayerGetTile,
-// PlayerSetPos(Point3<f64>),
-// PlayerSetTile(Point3<i16>),
-// PlayerSetting {
-//     key: PlayerSettingKey<'a>,
-//     value: bool,
-// },
-// // World APIs
-// WorldCheckpointRestore,
-// WorldCheckpointSave,
-// WorldGetBlock(Point3<i16>),
-// /// Has Raspberry Jam mod extension to get block with NBT data. Requires a world setting to be set.
-// /// TODO: look into this
-// WorldGetBlockWithData(Point3<i16>),
-// WorldGetHeight(Point2<i16>),
-// WorldGetPlayerIds,
-// WorldSetBlock {
-//     coords: Point3<i16>,
-//     tile: Tile,
-//     data: TileData,
-//     /// Raspberry Jam mod extension to set block with NBT data.
-//     ///
-//     /// Set to [`None`] when using other servers.
-//     json_nbt: Option<ApiStr<'a>>,
-// },
-// WorldSetBlocks {
-//     coords_1: Point3<i16>,
-//     coords_2: Point3<i16>,
-//     tile: Tile,
-//     data: TileData,
-//     /// Raspberry Jam mod extension to add NBT data to the blocks being set.
-//     ///
-//     /// Set to [`None`] when using other servers.
-//     json_nbt: Option<ApiStr<'a>>,
-// },
-// WorldSetting {
-//     key: WorldSettingKey<'a>,
-//     value: bool,
-// },
 // // Event APIs
 // EventsClear,
 // EventsBlockHits,

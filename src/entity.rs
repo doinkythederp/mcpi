@@ -2,7 +2,8 @@ use std::future::Future;
 
 use nalgebra::Point3;
 
-use crate::connection::{Command, EntityId, PlayerSettingKey, Protocol};
+use crate::connection::commands::*;
+use crate::connection::{EntityId, PlayerSettingKey, Protocol};
 use crate::util::parse_point;
 use crate::Result;
 
@@ -52,14 +53,20 @@ impl<T: Protocol> Entity for Player<T> {
     }
 
     async fn get_position(&self) -> Result<Point3<f64>> {
-        let pos = self.connection.send(Command::EntityGetPos(self.id)).await?;
+        let pos = self
+            .connection
+            .send(EntityGetPos { target: self.id })
+            .await?;
         let vec = parse_point(&pos)?;
         Ok(vec)
     }
 
     async fn set_position(&mut self, position: Point3<f64>) -> Result {
         self.connection
-            .send(Command::EntitySetPos(self.id, position))
+            .send(EntitySetPos {
+                target: self.id,
+                coords: position,
+            })
             .await?;
         Ok(())
     }
@@ -67,7 +74,7 @@ impl<T: Protocol> Entity for Player<T> {
     async fn get_tile(&self) -> Result<Point3<i16>> {
         let tile = self
             .connection
-            .send(Command::EntityGetTile(self.id))
+            .send(EntityGetTile { target: self.id })
             .await?;
         let vec = parse_point(&tile)?;
         Ok(vec)
@@ -75,7 +82,10 @@ impl<T: Protocol> Entity for Player<T> {
 
     async fn set_tile(&mut self, tile: Point3<i16>) -> Result {
         self.connection
-            .send(Command::EntitySetTile(self.id, tile))
+            .send(EntitySetTile {
+                target: self.id,
+                coords: tile,
+            })
             .await?;
         Ok(())
     }
@@ -105,7 +115,7 @@ impl<T: Protocol> ClientPlayer<T> {
     /// Enables or disables a setting that controls the behavior or the host player.
     pub async fn set(&mut self, setting: PlayerSettingKey<'_>, enabled: bool) -> Result {
         self.connection
-            .send(Command::PlayerSetting {
+            .send(PlayerSetting {
                 key: setting,
                 value: enabled,
             })
@@ -127,26 +137,26 @@ impl<T: Protocol> Entity for ClientPlayer<T> {
     }
 
     async fn get_position(&self) -> Result<Point3<f64>> {
-        let pos = self.connection.send(Command::PlayerGetPos).await?;
+        let pos = self.connection.send(PlayerGetPos {}).await?;
         let vec = parse_point(&pos)?;
         Ok(vec)
     }
 
     async fn set_position(&mut self, position: Point3<f64>) -> Result {
         self.connection
-            .send(Command::PlayerSetPos(position))
+            .send(PlayerSetPos { coords: position })
             .await?;
         Ok(())
     }
 
     async fn get_tile(&self) -> Result<Point3<i16>> {
-        let tile = self.connection.send(Command::PlayerGetTile).await?;
+        let tile = self.connection.send(PlayerGetTile {}).await?;
         let vec = parse_point(&tile)?;
         Ok(vec)
     }
 
     async fn set_tile(&mut self, tile: Point3<i16>) -> Result {
-        self.connection.send(Command::PlayerSetTile(tile)).await?;
+        self.connection.send(PlayerSetTile { coords: tile }).await?;
         Ok(())
     }
 }

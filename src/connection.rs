@@ -245,7 +245,7 @@ impl Display for Tile {
 /// set and later retrieved by the API user.
 ///
 /// See also: [Minecraft: Pi Edition Complete Block List](https://mcpirevival.miraheze.org/wiki/Minecraft:_Pi_Edition_Complete_Block_List)
-#[derive(Debug, Clone, Default, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, AsRef)]
+#[derive(Debug, Clone, Default, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, AsRef, Display)]
 #[as_ref(forward)]
 pub struct TileData(pub u8);
 
@@ -729,9 +729,9 @@ impl Dimension {
 /// A player-related setting that can be updated using the API.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, AsRef, Display)]
 #[as_ref(forward)]
-pub struct PlayerSettingKey(pub ApiStr<'static>);
+pub struct PlayerSettingKey<'a>(pub ApiStr<'a>);
 
-impl PlayerSettingKey {
+impl PlayerSettingKey<'_> {
     /// When enabled, the player will automatically jump when walking into a block.
     pub const AUTOJUMP: Self = Self(ApiStr("autojump"));
 }
@@ -739,9 +739,9 @@ impl PlayerSettingKey {
 /// A world-related setting that can be updated using the API.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, AsRef, Display)]
 #[as_ref(forward)]
-pub struct WorldSettingKey(pub ApiStr<'static>);
+pub struct WorldSettingKey<'a>(pub ApiStr<'a>);
 
-impl WorldSettingKey {
+impl WorldSettingKey<'_> {
     /// When enabled, players cannot edit the world (such as by placing or destroying blocks).
     pub const WORLD_IMMUTABLE: Self = Self(ApiStr("world_immutable"));
     /// When disabled, player name tags will not be shown above their heads.
@@ -755,9 +755,9 @@ impl WorldSettingKey {
 /// An event-related setting that can be updated using the API. (Raspberry Jam extension)
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, AsRef)]
 #[as_ref(forward)]
-pub struct EventsSettingKey(pub ApiStr<'static>);
+pub struct EventsSettingKey<'a>(pub ApiStr<'a>);
 
-impl WorldSettingKey {
+impl WorldSettingKey<'_> {
     /// Raspberry Jam extension: controls whether events will only be sent from players holding a sword.
     pub const RESTRICT_TO_SWORD: Self = Self(ApiStr("restrict_to_sword"));
     /// Raspberry Jam extension: controls whether events will be sent that were triggered by left-clicks.
@@ -826,9 +826,9 @@ pub enum ChatStringError {
 /// A CP437 string that does not contain the LF (line feed) character.
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, AsRef)]
 #[as_ref(forward)]
-pub struct ChatString(Cp437String<'static>);
+pub struct ChatString<'a>(Cp437String<'a>);
 
-impl FromStr for ChatString {
+impl FromStr for ChatString<'_> {
     type Err = ChatStringError;
 
     /// Creates a new [`ChatString`] from the given string.
@@ -846,7 +846,7 @@ impl FromStr for ChatString {
     }
 }
 
-impl ChatString {
+impl ChatString<'_> {
     /// Creates a new [`ChatString`] from the given string.
     ///
     /// Invalid characters are replaced with the "?" character.

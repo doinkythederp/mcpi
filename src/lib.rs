@@ -12,6 +12,7 @@ use connection::{
     ApiStr, ChatString, ClonableConnection, ConnectionError, EntityId, NewlineStrError, Protocol,
     ServerConnection, Tile, TileData, WorldSettingKey,
 };
+use entity::{ClientPlayer, Player};
 // use entity::{ClientPlayer, Player};
 use futures_core::Stream;
 use nalgebra::{Point2, Point3};
@@ -20,7 +21,7 @@ use snafu::{OptionExt, Snafu};
 pub mod block;
 pub mod camera;
 pub mod connection;
-// pub mod entity;
+pub mod entity;
 pub mod util;
 
 pub use block::Block;
@@ -84,16 +85,16 @@ impl<T: Protocol + Clone> World<T> {
     }
 
     /// Post a single message to the in-game chat as the user.
-    pub async fn post_message(&mut self, message: ChatString) -> Result<(), WorldError> {
+    pub async fn post_message(&mut self, message: ChatString<'_>) -> Result<(), WorldError> {
         self.connection.send(ChatPost { message }).await?;
         Ok(())
     }
 
-    // /// Gets the type of the block at the given coordinates.
-    // pub async fn get_tile(&self, coords: Point3<i16>) -> Result<Tile> {
-    //     let ty = self.connection.send(WorldGetBlock(coords)).await?;
-    //     Ok(Tile(ty.parse()?))
-    // }
+    /// Gets the type of the block at the given coordinates.
+    pub async fn get_tile(&self, coords: Point3<i16>) -> Result<Tile> {
+        let ty = self.connection.send(WorldGetBlock { coords }).await?;
+        Ok(Tile(ty.parse()?))
+    }
 
     // /// Gets the types and location offsets relative to `coords_0` of the blocks inclusively contained in the given cuboid.
     // ///
@@ -105,7 +106,7 @@ impl<T: Protocol + Clone> World<T> {
     // ) -> Result<Vec<(Tile, Point3<i16>)>> {
     //     let blocks = self
     //         .connection
-    //         .send(WorldGetBlocks(coords_1, coords_2))
+    //         .send(WorldGetBlocks { coords_1, coords_2 })
     //         .await?;
 
     //     // Order: by z, then x, then y.
@@ -129,152 +130,152 @@ impl<T: Protocol + Clone> World<T> {
     //     Ok(blocks)
     // }
 
-    // /// Gets the type and metadata of the block at the given coordinates.
-    // pub async fn get_block(&self, coords: Point3<i16>) -> Result<Block> {
-    //     self.connection
-    //         .send(WorldGetBlockWithData(coords))
-    //         .await?
-    //         .parse()
-    // }
+    /// Gets the type and metadata of the block at the given coordinates.
+    pub async fn get_block(&self, coords: Point3<i16>) -> Result<Block> {
+        self.connection
+            .send(WorldGetBlockWithData { coords })
+            .await?
+            .parse()
+    }
 
-    // /// Sets the block at the given coordinates to the specified type.
-    // ///
-    // /// This method is shorthand for [`Self::set_block`] with `Block::new(tile, None)`.
-    // pub async fn set_tile(&mut self, coords: Point3<i16>, tile: Tile) -> Result<()> {
-    //     self.connection
-    //         .send(WorldSetBlock {
-    //             coords,
-    //             tile,
-    //             data: TileData::default(),
-    //             json_nbt: None,
-    //         })
-    //         .await?;
-    //     Ok(())
-    // }
+    /// Sets the block at the given coordinates to the specified type.
+    ///
+    /// This method is shorthand for [`Self::set_block`] with `Block::new(tile, None)`.
+    pub async fn set_tile(&mut self, coords: Point3<i16>, tile: Tile) -> Result<()> {
+        self.connection
+            .send(WorldSetBlock {
+                coords,
+                tile,
+                data: TileData::default(),
+                json_nbt: None,
+            })
+            .await?;
+        Ok(())
+    }
 
-    // /// Sets the blocks inclusively contained in the given cuboid to the specified type.
-    // ///
-    // /// This method is shorthand for [`Self::set_blocks`] with `Block::new(tile, None)`.
-    // pub async fn set_tiles(
-    //     &mut self,
-    //     coords_1: Point3<i16>,
-    //     coords_2: Point3<i16>,
-    //     tile: Tile,
-    // ) -> Result<()> {
-    //     self.connection
-    //         .send(WorldSetBlocks {
-    //             coords_1,
-    //             coords_2,
-    //             tile,
-    //             data: TileData::default(),
-    //             json_nbt: None,
-    //         })
-    //         .await?;
-    //     Ok(())
-    // }
+    /// Sets the blocks inclusively contained in the given cuboid to the specified type.
+    ///
+    /// This method is shorthand for [`Self::set_blocks`] with `Block::new(tile, None)`.
+    pub async fn set_tiles(
+        &mut self,
+        coords_1: Point3<i16>,
+        coords_2: Point3<i16>,
+        tile: Tile,
+    ) -> Result<()> {
+        self.connection
+            .send(WorldSetBlocks {
+                coords_1,
+                coords_2,
+                tile,
+                data: TileData::default(),
+                json_nbt: None,
+            })
+            .await?;
+        Ok(())
+    }
 
-    // /// Updates the blocks inclusively contained in the given cuboid to have the specified type and metadata.
-    // pub async fn set_blocks(
-    //     &mut self,
-    //     coords_1: Point3<i16>,
-    //     coords_2: Point3<i16>,
-    //     block: &Block,
-    // ) -> Result<()> {
-    //     let nbt = block.json_nbt();
-    //     self.connection
-    //         .send(WorldSetBlocks {
-    //             coords_1,
-    //             coords_2,
-    //             tile: block.tile,
-    //             data: block.data,
-    //             json_nbt: nbt.as_deref().map(ApiStr::new).transpose()?,
-    //         })
-    //         .await?;
-    //     Ok(())
-    // }
+    /// Updates the blocks inclusively contained in the given cuboid to have the specified type and metadata.
+    pub async fn set_blocks(
+        &mut self,
+        coords_1: Point3<i16>,
+        coords_2: Point3<i16>,
+        block: &Block,
+    ) -> Result<()> {
+        let nbt = block.json_nbt();
+        self.connection
+            .send(WorldSetBlocks {
+                coords_1,
+                coords_2,
+                tile: block.tile,
+                data: block.data,
+                json_nbt: nbt.as_deref().map(ApiStr::new).transpose()?,
+            })
+            .await?;
+        Ok(())
+    }
 
-    // /// Updates the block at the given coordinates to have the specified type and metadata.
-    // pub async fn set_block(&mut self, coords: Point3<i16>, block: &Block) -> Result<()> {
-    //     let nbt = block.json_nbt();
-    //     self.connection
-    //         .send(WorldSetBlock {
-    //             coords,
-    //             tile: block.tile,
-    //             data: block.data,
-    //             json_nbt: nbt.as_deref().map(ApiStr::new).transpose()?,
-    //         })
-    //         .await?;
-    //     Ok(())
-    // }
+    /// Updates the block at the given coordinates to have the specified type and metadata.
+    pub async fn set_block(&mut self, coords: Point3<i16>, block: &Block) -> Result<()> {
+        let nbt = block.json_nbt();
+        self.connection
+            .send(WorldSetBlock {
+                coords,
+                tile: block.tile,
+                data: block.data,
+                json_nbt: nbt.as_deref().map(ApiStr::new).transpose()?,
+            })
+            .await?;
+        Ok(())
+    }
 
-    // /// Finds the Y-coordinate of the highest non-air block at the given X and Z coordinates.
-    // pub async fn get_height_at(&self, coords: Point2<i16>) -> Result<i16> {
-    //     let y = self.connection.send(WorldGetHeight(coords)).await?;
-    //     Ok(y.parse()?)
-    // }
+    /// Finds the Y-coordinate of the highest non-air block at the given X and Z coordinates.
+    pub async fn get_height_at(&self, coords: Point2<i16>) -> Result<i16> {
+        let y = self.connection.send(WorldGetHeight { coords }).await?;
+        Ok(y.parse()?)
+    }
 
-    // /// Returns the player entity controlled by the connected game instance (i.e. the host player).
-    // pub fn me(&self) -> ClientPlayer<T> {
-    //     ClientPlayer::new(self.connection.clone())
-    // }
+    /// Returns the player entity controlled by the connected game instance (i.e. the host player).
+    pub fn me(&self) -> ClientPlayer<T> {
+        ClientPlayer::new(self.connection.clone())
+    }
 
-    // pub async fn save_checkpoint(&mut self) -> Result<()> {
-    //     self.connection.send(WorldCheckpointSave).await?;
-    //     Ok(())
-    // }
+    pub async fn save_checkpoint(&mut self) -> Result<()> {
+        self.connection.send(WorldCheckpointSave {}).await?;
+        Ok(())
+    }
 
-    // pub async fn restore_checkpoint(&mut self) -> Result<()> {
-    //     self.connection.send(WorldCheckpointRestore).await?;
-    //     Ok(())
-    // }
+    pub async fn restore_checkpoint(&mut self) -> Result<()> {
+        self.connection.send(WorldCheckpointRestore {}).await?;
+        Ok(())
+    }
 
-    // /// Returns all players currently in the world.
-    // pub async fn all_players(&self) -> Result<Vec<Player<T>>> {
-    //     let ids = self.connection.send(WorldGetPlayerIds).await?;
-    //     let players = ids
-    //         .split('|')
-    //         .map(|id| {
-    //             let id = EntityId(id.parse()?);
-    //             Ok::<_, WorldError>(Player::new(self.connection.clone(), id))
-    //         })
-    //         .collect::<Result<Vec<_>, _>>()?;
-    //     Ok(players)
-    // }
+    /// Returns all players currently in the world.
+    pub async fn all_players(&self) -> Result<Vec<Player<T>>> {
+        let ids = self.connection.send(WorldGetPlayerIds {}).await?;
+        let players = ids
+            .split('|')
+            .map(|id| {
+                let id = EntityId(id.parse()?);
+                Ok::<_, WorldError>(Player::new(self.connection.clone(), id))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(players)
+    }
 
-    // /// Enables or disables a setting that controls the behavior or the game world.
-    // pub async fn set(&mut self, setting: WorldSettingKey, enabled: bool) -> Result<()> {
-    //     self.connection
-    //         .send(WorldSetting {
-    //             key: setting,
-    //             value: enabled,
-    //         })
-    //         .await?;
-    //     Ok(())
-    // }
+    /// Enables or disables a setting that controls the behavior or the game world.
+    pub async fn set(&mut self, setting: WorldSettingKey<'_>, enabled: bool) -> Result<()> {
+        self.connection
+            .send(WorldSetting {
+                key: setting,
+                value: enabled,
+            })
+            .await?;
+        Ok(())
+    }
 
-    // /// Enables or disables world immutability.
-    // ///
-    // /// When enabled, players cannot edit the world (such as by placing or destroying blocks).
-    // pub async fn set_immutable(&mut self, enabled: bool) -> Result {
-    //     self.set(WorldSettingKey::WORLD_IMMUTABLE, enabled).await
-    // }
+    /// Enables or disables world immutability.
+    ///
+    /// When enabled, players cannot edit the world (such as by placing or destroying blocks).
+    pub async fn set_immutable(&mut self, enabled: bool) -> Result {
+        self.set(WorldSettingKey::WORLD_IMMUTABLE, enabled).await
+    }
 
-    // /// Enables or disables name tag visibility.
-    // ///
-    // /// When disabled, player name tags will not be shown above their heads.
-    // pub async fn set_nametags_visible(&mut self, enabled: bool) -> Result {
-    //     self.set(WorldSettingKey::NAMETAGS_VISIBLE, enabled).await
-    // }
+    /// Enables or disables name tag visibility.
+    ///
+    /// When disabled, player name tags will not be shown above their heads.
+    pub async fn set_nametags_visible(&mut self, enabled: bool) -> Result {
+        self.set(WorldSettingKey::NAMETAGS_VISIBLE, enabled).await
+    }
 
     // /// Clears any pending events that have yet to be received.
     // pub async fn clear_events(&mut self) -> Result<()> {
-    //     self.connection.send(EventsClear).await?;
+    //     self.connection.send(EventsClear {}).await?;
     //     Ok(())
     // }
 
     // /// Polls for any block hits that have occurred since the last call to this method.
     // pub async fn poll_block_hits(&self) -> Result<Vec<BlockHit>> {
-    //     let hits = self.connection.send(EventsBlockHits).await?;
+    //     let hits = self.connection.send(EventsBlockHits {}).await?;
     //     hits.split('|')
     //         .map(|hit| {
     //             let mut hit = hit.split(',').map(i16::from_str);
