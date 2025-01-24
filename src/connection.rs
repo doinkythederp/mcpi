@@ -762,7 +762,7 @@ impl RaspberryJamParticle<'_> {
 }
 
 /// A world dimension that can be used with the Raspberry Jam API extension.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, AsRef)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, AsRef, Display)]
 pub struct Dimension(pub i32);
 
 impl Dimension {

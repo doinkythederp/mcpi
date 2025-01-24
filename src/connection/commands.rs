@@ -1,4 +1,4 @@
-//! A command that can be sent to the game server to perform an action or query information.
+//! Commands can be sent to the game server to perform an action or query information.
 //!
 //! Includes all commands supported by the vanilla Minecraft: Pi Edition game, as well as
 //! commands from the following plugins, mods, or API extensions:
@@ -7,8 +7,7 @@
 //! - [MCPI Addons](https://github.com/Bigjango13/MCPI-Addons) mod
 //! - [Raspberry Jam](https://github.com/arpruss/raspberryjammod)
 //!
-//! Enum members are generally named after the API method they correspond to, with the exception of
-//! a few extension commands that have conflicting names.
+//! Each command struct is generally named after the API method it corresponds to.
 
 use std::fmt::{self, Display, Formatter};
 use std::io::Write;
@@ -18,6 +17,7 @@ use nalgebra::{Point, Point2, Point3, Scalar};
 use super::{ApiStr, ChatString, EntityId, PlayerSettingKey, Tile, TileData, WorldSettingKey};
 
 pub mod mcpi_addons;
+pub mod raspberry_jam;
 pub mod raspberry_juice;
 
 /// Values implementing this trait are commands that can be serialized and sent to the Minecraft
@@ -287,64 +287,6 @@ impl SerializableCommand for ChatPost<'_> {
         buf
     }
 }
-
-// // # Raspbery Jam mod
-// // https://github.com/arpruss/raspberryjammod
-
-// // World APIs
-// /// Has extension to get block with NBT data. Requires a world setting to be set.
-// WorldGetBlocksWithData {
-//     coords_1: Point3<i16>,
-//     coords_2: Point3<i16>,
-// },
-// WorldSpawnParticle {
-//     particle: RaspberryJamParticle<'a>,
-//     coords: Point3<f64>,
-//     direction: Point3<f64>, // TODO: Unclear how to use this
-//     speed: f64,
-//     count: i32,
-// },
-
-// // Block APIs
-// BlockGetLightLevel {
-//     tile: Tile,
-// },
-// BlockSetLightLevel {
-//     tile: Tile,
-//     level: f32,
-// },
-
-// // Entity APIs
-// EntitySetDimension {
-//     entity_id: EntityId,
-//     dimension: Dimension,
-// },
-// EntityGetNameAndUUID(EntityId),
-// RaspberryJamWorldSpawnEntity {
-//     entity_type: JavaEntityType,
-//     coords: Point3<f64>,
-//     json_nbt: Option<ApiStr<'a>>,
-// },
-
-// // Player APIs
-// PlayerSetDimension {
-//     dimension: Dimension,
-// },
-// PlayerGetNameAndUUID,
-
-// // Camera APIs
-// CameraGetEntityId,
-// CameraSetFollow {
-//     target: Option<EntityId>,
-// },
-// CameraSetNormal {
-//     target: Option<EntityId>,
-// },
-// CameraSetThirdPerson {
-//     target: Option<EntityId>,
-// },
-// CameraSetDebug,
-// CameraSetDistance(f32),
 
 #[cfg(test)]
 mod test {

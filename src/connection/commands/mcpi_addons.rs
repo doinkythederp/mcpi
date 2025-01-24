@@ -1,4 +1,4 @@
-//! # MCPI Addons mod by Bigjango13
+//! MCPI Addons mod by Bigjango13
 //!
 //! https://github.com/Bigjango13/MCPI-Addons
 
