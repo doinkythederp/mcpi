@@ -5,26 +5,20 @@
 //! - [Wiki.vg](https://wiki.vg/Minecraft_Pi_Protocol)
 //! - [martinohanlon/Minecraft-Pi-API](https://github.com/martinohanlon/Minecraft-Pi-API/blob/master/api.md)
 //! - [MCPI Revival Wiki](https://mcpirevival.miraheze.org/wiki/MCPI_Revival)
-//!
 
 use std::borrow::Cow;
 use std::fmt::{self, Debug, Formatter};
 use std::future::Future;
-use std::io::Write;
-use std::ops::Deref;
 use std::str::FromStr;
-use std::sync::Arc;
 use std::time::Duration;
 
 use commands::SerializableCommand;
-use derive_more::derive::Constructor;
+use derive_more::derive::{Constructor, FromStr};
 use derive_more::{AsRef, Display};
-use nalgebra::{Point, Point2, Point3, Scalar};
 use snafu::{Backtrace, OptionExt, Snafu};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufWriter};
 use tokio::net::{TcpStream, ToSocketAddrs};
 use tokio::sync::oneshot::error::RecvError;
-use tokio::sync::Mutex;
 use tokio::time::error::Elapsed;
 use tokio::time::timeout;
 
@@ -37,7 +31,7 @@ use crate::util::{Cp437String, CHAR_TO_CP437};
 /// Vanilla blocks are available as associated constants.
 ///
 /// See also: [Minecraft: Pi Edition Complete Block List](https://mcpirevival.miraheze.org/wiki/Minecraft:_Pi_Edition_Complete_Block_List)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Display, FromStr)]
 pub struct Tile(pub u8);
 
 impl Tile {
@@ -244,14 +238,18 @@ impl Display for TileDisplay {
 
 /// Extra data that can be attached to a block, specific to that block type.
 ///
-/// For many blocks, this data is used to represent the block's state, such as growth stage or orientation.
-/// These common values are available as associated constants.
+/// For many blocks, this data is used to represent the block's state, such as
+/// growth stage or orientation. These common values are available as associated
+/// constants.
 ///
-/// When working with blocks that don't store any extra state, the TileData will not be used by the server, but can be
-/// set and later retrieved by the API user.
+/// When working with blocks that don't store any extra state, the TileData will
+/// not be used by the server, but can be set and later retrieved by the API
+/// user.
 ///
 /// See also: [Minecraft: Pi Edition Complete Block List](https://mcpirevival.miraheze.org/wiki/Minecraft:_Pi_Edition_Complete_Block_List)
-#[derive(Debug, Clone, Default, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, AsRef, Display)]
+#[derive(
+    Debug, Clone, Default, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, AsRef, Display, FromStr,
+)]
 #[as_ref(forward)]
 pub struct TileData(pub u8);
 
@@ -432,15 +430,17 @@ impl TileData {
 
 /// An entity type supported by the Raspberry Juice/Jam API extensions.
 /// These types can be used with [`Command`] to spawn new entities,
-/// remove ones of a certain type, get a list of entities of a certain type, and so on.
+/// remove ones of a certain type, get a list of entities of a certain type, and
+/// so on.
 ///
 /// See also: [Raspberry Juice Reference Implementation](https://github.com/zhuowei/RaspberryJuice/blob/e8ef1bcd5aa07a1851d25de847c02e0a171d8a20/src/main/resources/mcpi/api/python/modded/mcpi/entity.py#L24-L102)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, AsRef, Display)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, AsRef, Display, FromStr)]
 #[repr(transparent)]
 pub struct JavaEntityType(pub i32);
 
 impl JavaEntityType {
-    /// Used by Raspberry Juice to signify "no filter" in a command that can be filtered by entity type.
+    /// Used by Raspberry Juice to signify "no filter" in a command that can be
+    /// filtered by entity type.
     pub const ANY: i32 = -1;
     pub const EXPERIENCE_ORB: Self = Self(2);
     pub const AREA_EFFECT_CLOUD: Self = Self(3);
@@ -524,7 +524,8 @@ impl JavaEntityType {
     pub const ENDER_CRYSTAL: Self = Self(200);
 }
 
-/// A key that can be automated (pressed and released) with the MCPI Addons API extension.
+/// A key that can be automated (pressed and released) with the MCPI Addons API
+/// extension.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, AsRef, Display)]
 #[as_ref(forward)]
 pub struct MCPIExtrasKey<'a>(pub ApiStr<'a>);
@@ -564,9 +565,10 @@ impl MCPIExtrasKey<'_> {
 
 /// The color of a sheep.
 ///
-/// This can be when creating a new Sheep entity with [`MCPIExtrasEntityType`].or when
-/// changing a sheep's color using [`CustomEntitySetSheepColor`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, AsRef, Display)]
+/// This can be when creating a new Sheep entity with
+/// [`MCPIExtrasEntityType`].or when changing a sheep's color using
+/// [`CustomEntitySetSheepColor`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, AsRef, Display, FromStr)]
 pub struct SheepColor(pub i32);
 
 impl SheepColor {
@@ -591,7 +593,7 @@ impl SheepColor {
 /// An entity type supported by the MCPI Addons API extension.
 ///
 /// See also: [MCPI Addons Reference Implementation](https://github.com/Bigjango13/MCPI-Addons/blob/05027ab7277d51c0dcdd93b58d2ddb66dfea92df/mcpi_addons/entity.py#L56-L100)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, AsRef, Display)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, AsRef, Display, FromStr)]
 pub struct MCPIExtrasEntityType(pub i32);
 
 impl MCPIExtrasEntityType {
@@ -621,9 +623,10 @@ impl MCPIExtrasEntityType {
 /// This type is primarily used by the [`CustomEntitySpawn`] API call
 /// whilst connected to a server with the MCPI Addons API extension.
 ///
-/// The struct itself is an entity type and an entity data value. Entities which do not have a data value
-/// are available as associated constants, and ones that do have a data value can be created using one
-/// of the provided constructors.
+/// The struct itself is an entity type and an entity data value. Entities which
+/// do not have a data value are available as associated constants, and ones
+/// that do have a data value can be created using one of the provided
+/// constructors.
 ///
 /// See also: [MCPI Addons Reference Implementation](https://github.com/Bigjango13/MCPI-Addons/blob/05027ab7277d51c0dcdd93b58d2ddb66dfea92df/mcpi_addons/entity.py#L56-L100)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Constructor)]
@@ -678,7 +681,8 @@ impl MCPIExtrasEntityVariant {
         }
     }
 
-    /// Creates a new primed TNT entity that will explode after the given number of ticks.
+    /// Creates a new primed TNT entity that will explode after the given number
+    /// of ticks.
     pub const fn tnt_from_ticks(ticks: i32) -> Self {
         Self {
             entity: MCPIExtrasEntityType::TNT,
@@ -686,7 +690,8 @@ impl MCPIExtrasEntityVariant {
         } // TODO: verify time unit
     }
 
-    /// Creates a new primed TNT entity that will explode after the given duration.
+    /// Creates a new primed TNT entity that will explode after the given
+    /// duration.
     pub fn new_tnt(fuse: Duration) -> Self {
         Self::tnt_from_ticks((fuse.as_secs_f64() / 0.05) as i32)
     }
@@ -762,7 +767,7 @@ impl RaspberryJamParticle<'_> {
 }
 
 /// A world dimension that can be used with the Raspberry Jam API extension.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, AsRef, Display)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, AsRef, Display, FromStr)]
 pub struct Dimension(pub i32);
 
 impl Dimension {
@@ -777,7 +782,8 @@ impl Dimension {
 pub struct PlayerSettingKey<'a>(pub ApiStr<'a>);
 
 impl PlayerSettingKey<'_> {
-    /// When enabled, the player will automatically jump when walking into a block.
+    /// When enabled, the player will automatically jump when walking into a
+    /// block.
     pub const AUTOJUMP: Self = Self(ApiStr("autojump"));
 }
 
@@ -787,30 +793,36 @@ impl PlayerSettingKey<'_> {
 pub struct WorldSettingKey<'a>(pub ApiStr<'a>);
 
 impl WorldSettingKey<'_> {
-    /// When enabled, players cannot edit the world (such as by placing or destroying blocks).
+    /// When enabled, players cannot edit the world (such as by placing or
+    /// destroying blocks).
     pub const WORLD_IMMUTABLE: Self = Self(ApiStr("world_immutable"));
     /// When disabled, player name tags will not be shown above their heads.
     pub const NAMETAGS_VISIBLE: Self = Self(ApiStr("nametags_visible"));
-    /// Raspberry Jam extension: controls whether NBT data will be included when fetching block data.
+    /// Raspberry Jam extension: controls whether NBT data will be included when
+    /// fetching block data.
     pub const INCLUDE_NBT_WITH_DATA: Self = Self(ApiStr("include_nbt_with_data"));
-    /// Raspberry Jam extension: while enabled, block updates requested over the API will be queued but not executed.
+    /// Raspberry Jam extension: while enabled, block updates requested over the
+    /// API will be queued but not executed.
     pub const PAUSE_DRAWING: Self = Self(ApiStr("pause_drawing"));
 }
 
-/// An event-related setting that can be updated using the API. (Raspberry Jam extension)
+/// An event-related setting that can be updated using the API. (Raspberry Jam
+/// extension)
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, AsRef)]
 #[as_ref(forward)]
 pub struct EventsSettingKey<'a>(pub ApiStr<'a>);
 
 impl WorldSettingKey<'_> {
-    /// Raspberry Jam extension: controls whether events will only be sent from players holding a sword.
+    /// Raspberry Jam extension: controls whether events will only be sent from
+    /// players holding a sword.
     pub const RESTRICT_TO_SWORD: Self = Self(ApiStr("restrict_to_sword"));
-    /// Raspberry Jam extension: controls whether events will be sent that were triggered by left-clicks.
+    /// Raspberry Jam extension: controls whether events will be sent that were
+    /// triggered by left-clicks.
     pub const DETECT_LEFT_CLICK: Self = Self(ApiStr("detect_left_click"));
 }
 
 /// The identifier of an entity in the game world.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, AsRef, Display)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, AsRef, Display, FromStr)]
 pub struct EntityId(pub i32);
 
 // MARK: Commands
@@ -835,7 +847,8 @@ impl<'a> ApiStr<'a> {
         }
     }
 
-    /// Creates a new ApiString from the given string without checking for LF characters.
+    /// Creates a new ApiString from the given string without checking for LF
+    /// characters.
     ///
     /// # Safety
     ///
@@ -854,7 +867,8 @@ impl<'a> TryFrom<&'a str> for ApiStr<'a> {
     }
 }
 
-/// An error that occurs when an ApiString is created that contains a LF (line feed) character.
+/// An error that occurs when an [`ApiStr`] is created that contains a LF (line
+/// feed) character.
 #[derive(Debug, Snafu)]
 #[snafu(display("String must not contain LF characters."))]
 pub struct NewlineStrError;
@@ -910,7 +924,8 @@ impl ChatString<'_> {
     ///
     /// # Safety
     ///
-    /// The string must be CP437-encoded and not contain LF (line feed) characters.
+    /// The string must be CP437-encoded and not contain LF (line feed)
+    /// characters.
     #[must_use]
     pub const unsafe fn new_unchecked(inner: Cp437String<'static>) -> Self {
         Self(inner)
@@ -924,7 +939,8 @@ impl ChatString<'_> {
 
 // MARK: Connection
 
-/// An error that can occur when interacting with a Minecraft: Pi Edition game server.
+/// An error that can occur when interacting with a Minecraft: Pi Edition game
+/// server.
 #[derive(Debug, Snafu)]
 pub enum ConnectionError {
     /// An IO error occurred and the command could not be sent.
@@ -978,24 +994,27 @@ pub enum ConnectionError {
     QueueFull { backtrace: Backtrace },
 }
 
-/// Options that can be set to change the behavior of the connection to the game.
+/// Options that can be set to change the behavior of the connection to the
+/// game.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ConnectOptions {
-    /// The amount of time to wait for a response from the server before giving up.
-    /// Setting this to a higher value may slow performance,
+    /// The amount of time to wait for a response from the server before giving
+    /// up. Setting this to a higher value may slow performance,
     /// but has a smaller chance of causing a timeout error.
     ///
     /// Defaults to 1 second.
     pub response_timeout: Option<Duration>,
     /// Whether to always wait for a response from the server.
     ///
-    /// Because the server (under normal circumstances) does not acknowledge commands that do not require a
-    /// response, the default behavior is to not check for a response for those commands. However,
-    /// in an error scenario, the server may respond with a 'Fail' message, which would be missed if
-    /// this setting is disabled.
+    /// Because the server (under normal circumstances) does not acknowledge
+    /// commands that do not require a response, the default behavior is to
+    /// not check for a response for those commands. However, in an error
+    /// scenario, the server may respond with a 'Fail' message, which would be
+    /// missed if this setting is disabled.
     ///
-    /// Enabling this setting will significantly degrade performance because commands that do not require a response
-    /// will need to wait [`response_timeout`] seconds before continuing.
+    /// Enabling this setting will significantly degrade performance because
+    /// commands that do not require a response will need to wait
+    /// [`response_timeout`] seconds before continuing.
     pub always_wait_for_response: bool,
 }
 
@@ -1010,22 +1029,15 @@ impl Default for ConnectOptions {
 
 /// A communication interface with a Minecraft: Pi Edition game server.
 pub trait Protocol: Debug {
-    /// Sends a command to the server and returns its response.
-    ///
-    /// If the command does not expect a response (as determined by [`Serializablehas_response`])
-    /// and the [`ConnectOptions::always_wait_for_response`] option is not enabled,
-    /// an empty string is returned without waiting for the server to respond.
-    ///
-    /// The operation will time out after the duration specified in the [`ConnectOptions::response_timeout`] option.
-    ///
-    /// Server responses are returned without processing or parsing.
-    fn send(
-        &self,
-        command: impl SerializableCommand + Send,
+    /// Sends a command to the server and returns its response without
+    /// processing or parsing.
+    fn send<T: SerializableCommand>(
+        &mut self,
+        command: T,
     ) -> impl Future<Output = Result<String, ConnectionError>> + Send;
 
     /// Flushes the connection and disconnects.
-    fn close(self) -> impl Future<Output = Result<(), ConnectionError>> + Send;
+    fn close(&mut self) -> impl Future<Output = Result<(), ConnectionError>> + Send;
 }
 
 /// A connection to a game server using the Minecraft: Pi Edition API protocol.
@@ -1067,6 +1079,14 @@ impl ServerConnection {
     }
 
     /// Sends a raw command to the server.
+    ///
+    /// # Panics
+    ///
+    /// The function will panic if the
+    /// [`ConnectOptions::always_wait_for_response`] option is set, there is
+    /// no [`ConnectOptions::response_timeout`], and the command being sent does
+    /// not [expect a response](`SerializableCommand::HAS_RESPONSE`) in order to
+    /// prevent an infinite hang.
     pub(crate) async fn send_raw(
         &mut self,
         data: &[u8],
@@ -1079,7 +1099,9 @@ impl ServerConnection {
             if let Some(response_timeout) = self.options.response_timeout {
                 timeout(response_timeout, self.read_frame()).await?
             } else {
-                assert!(has_response, "Using the `always_wait_for_response` setting without a `response_timeout` for a command that does not expect a response may cause an infinite hang.");
+                if has_response {
+                    panic!("Using the `always_wait_for_response` setting without a `response_timeout` for a command that does not expect a response may cause an infinite hang.");
+                }
                 self.read_frame().await
             }
         } else {
@@ -1087,8 +1109,8 @@ impl ServerConnection {
         }
     }
 
-    /// Recieve a frame from the connection by either using data that has already been recieved
-    /// or waiting for more data from the socket.
+    /// Receive a frame from the connection by either using data that has
+    /// already been received or waiting for more data from the socket.
     pub(crate) async fn read_frame(&mut self) -> Result<String, ConnectionError> {
         loop {
             // Attempt to parse a frame from the buffered data. If enough data
@@ -1113,8 +1135,30 @@ impl ServerConnection {
         let frame = self.buffer.drain(..idx + 1).collect();
         Some(frame)
     }
+}
 
-    pub async fn send<T: SerializableCommand>(
+impl Protocol for ServerConnection {
+    /// Sends a command to the server and returns its response.
+    ///
+    /// If the command does not [expect a
+    /// response](`SerializableCommand::HAS_RESPONSE`)
+    /// and the [`ConnectOptions::always_wait_for_response`] option has not been
+    /// changed to `true`, an empty string is returned without waiting for
+    /// the server to respond.
+    ///
+    /// The operation will time out after the duration specified in the
+    /// [`ConnectOptions::response_timeout`] option.
+    ///
+    /// Server responses are returned without processing or parsing.
+    ///
+    /// # Panics
+    ///
+    /// The function will panic if the
+    /// [`ConnectOptions::always_wait_for_response`] option is set, there is
+    /// no [`ConnectOptions::response_timeout`], and the command being sent does
+    /// not [expect a response](`SerializableCommand::HAS_RESPONSE`) in order to
+    /// prevent an infinite hang.
+    async fn send<T: SerializableCommand>(
         &mut self,
         command: T,
     ) -> Result<String, ConnectionError> {
@@ -1122,32 +1166,9 @@ impl ServerConnection {
             .await
     }
 
-    pub async fn close(mut self) -> Result<(), ConnectionError> {
+    async fn close(&mut self) -> Result<(), ConnectionError> {
         self.socket.shutdown().await?;
         Ok(())
-    }
-}
-
-pub type ClonableConnection = Arc<Mutex<Option<ServerConnection>>>;
-
-impl Protocol for ClonableConnection {
-    async fn send(
-        &self,
-        command: impl SerializableCommand + Send,
-    ) -> Result<String, ConnectionError> {
-        if let Some(connection) = self.lock().await.as_mut() {
-            connection.send(command).await
-        } else {
-            ConnectionClosedSnafu.fail()
-        }
-    }
-
-    async fn close(self) -> Result<(), ConnectionError> {
-        if let Some(connection) = self.lock().await.take() {
-            connection.close().await
-        } else {
-            ConnectionClosedSnafu.fail()
-        }
     }
 }
 

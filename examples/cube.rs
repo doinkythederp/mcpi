@@ -1,5 +1,5 @@
 use mcpi::connection::commands::WorldSetBlocks;
-use mcpi::connection::{ConnectOptions, ServerConnection, Tile, TileData};
+use mcpi::connection::{ConnectOptions, Protocol, ServerConnection, Tile, TileData};
 use nalgebra::Point3;
 
 #[tokio::main]

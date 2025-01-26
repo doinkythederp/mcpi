@@ -3,7 +3,7 @@
 //! All in all, 15,625 commands will be sent to the server. (25^3)
 
 use mcpi::connection::commands::WorldSetBlock;
-use mcpi::connection::{ConnectOptions, ServerConnection, Tile, TileData};
+use mcpi::connection::{ConnectOptions, Protocol, ServerConnection, Tile, TileData};
 use nalgebra::Point3;
 
 #[tokio::main]

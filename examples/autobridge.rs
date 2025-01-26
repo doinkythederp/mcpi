@@ -31,7 +31,8 @@ pub async fn main() -> Result<(), Box<dyn Error>> {
         if distance(&player_pos, &last_player_pos) > 0.2 {
             // The player is walking. Let's put a block under where they are about to step.
 
-            // First figure out where the player is walking to by continuing their trajectory until they hit a new tile.
+            // First figure out where the player is walking to by continuing their
+            // trajectory until they hit a new tile.
             let player_velocity = player_pos - last_player_pos;
 
             let player_tile = pos_to_tile(&player_pos);

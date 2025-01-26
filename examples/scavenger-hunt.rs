@@ -25,7 +25,8 @@ pub async fn main() -> Result<(), Box<dyn Error>> {
     world.post("mcpi scavenger hunt example").await?;
 
     // Start by hiding a block the player must find.
-    // The block is hidden in a random location within a 50x50x50 cube centered on the player.
+    // The block is hidden in a random location within a 50x50x50 cube centered on
+    // the player.
     let starting_player_tile = world.me().get_tile().await?;
     let hidden_tile = starting_player_tile
         + Vector3::new(

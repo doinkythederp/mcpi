@@ -9,12 +9,13 @@ use std::time::Duration;
 use block::{BlockFace, InvalidBlockFaceError, ParseBlockError};
 use connection::commands::*;
 use connection::{
-    ApiStr, ChatString, ClonableConnection, ConnectionError, EntityId, NewlineStrError, Protocol,
+    ApiStr, ChatString, ConnectOptions, ConnectionError, EntityId, NewlineStrError, Protocol,
     ServerConnection, Tile, TileData, WorldSettingKey,
 };
+use derive_more::derive::From;
 use entity::{ClientPlayer, Player};
-// use entity::{ClientPlayer, Player};
 use futures_core::Stream;
+use itertools::Itertools;
 use nalgebra::{Point2, Point3};
 use snafu::{OptionExt, Snafu};
 
@@ -25,78 +26,119 @@ pub mod entity;
 pub mod util;
 
 pub use block::Block;
-use tokio::sync::Mutex;
+use tokio::net::ToSocketAddrs;
+use tokio::sync::{Mutex, MutexGuard};
 
 /// Error type for the World struct
 #[derive(Debug, Snafu)]
 pub enum WorldError {
+    /// An error caused by interacting with a Minecraft: Pi Edition game server.
     #[snafu(display("{source}"), context(false))]
     Connection { source: ConnectionError },
+    /// An error caused by creating an [`ApiStr`] that contains a LF (line feed)
+    /// character.
     #[snafu(display("{source}"), context(false))]
     ApiStrConvert { source: NewlineStrError },
+    /// An error caused by failing to parse an integer from a string.
     #[snafu(display("{source}"), context(false))]
     ParseInt { source: ParseIntError },
+    /// An error caused by failing to parse an floating point number from a
+    /// string.
     #[snafu(display("{source}"), context(false))]
     ParseFloat { source: ParseFloatError },
+    /// An error caused by failing to parse a block returned by the server.
     #[snafu(display("{source}"), context(false))]
     ParseBlock { source: ParseBlockError },
-    #[snafu(display("Not enough parts in server's response"))]
+    /// There was not enough data in the server's response.
     NotEnoughParts,
+    /// A block face returned by the server was invalid.
     #[snafu(display("{source}"), context(false))]
     InvalidBlockFace { source: InvalidBlockFaceError },
 }
 
 pub type Result<T = (), E = WorldError> = std::result::Result<T, E>;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct World<T: Protocol + Clone = ClonableConnection> {
-    connection: T,
+#[derive(Debug, From)]
+pub struct World<T: Protocol = ServerConnection> {
+    connection: Arc<Mutex<T>>,
 }
 
-impl<T: Protocol + Clone> From<T> for World<T> {
+impl<T: Protocol> Clone for World<T> {
+    fn clone(&self) -> Self {
+        Self {
+            connection: self.connection.clone(),
+        }
+    }
+}
+
+impl<T: Protocol> From<T> for World<T> {
     fn from(value: T) -> Self {
         Self::new(value)
     }
 }
 
-impl World<ClonableConnection> {
-    pub async fn connect(addr: &str) -> std::io::Result<Self> {
-        let connection = ServerConnection::new(addr, Default::default()).await?;
-        Ok(Self::new(Arc::new(Mutex::new(Some(connection)))))
+impl World<ServerConnection> {
+    pub async fn connect(addr: impl ToSocketAddrs) -> std::io::Result<Self> {
+        Ok(Self::new(
+            ServerConnection::new(addr, ConnectOptions::default()).await?,
+        ))
     }
 }
 
-impl<T: Protocol + Clone> World<T> {
-    pub const fn new(connection: T) -> Self {
-        Self { connection }
+impl<T: Protocol> World<T> {
+    pub fn new(connection: T) -> Self {
+        Self {
+            connection: Arc::new(Mutex::new(connection)),
+        }
+    }
+
+    pub async fn connection(&self) -> MutexGuard<'_, T> {
+        self.connection.lock().await
+    }
+
+    pub async fn send_command(
+        &self,
+        command: impl SerializableCommand,
+    ) -> Result<String, ConnectionError> {
+        self.connection().await.send(command).await
     }
 
     /// Post one or more messages to the in-game chat as the user.
+    ///
+    /// Because it is not possible to send multi-line chat messages, each line
+    /// (split by `\n` on all platforms) is sent individually. Messages are
+    /// re-encoded into the [CP437](https://en.wikipedia.org/wiki/Code_page_437)
+    /// character set, which only contains a subset of the characters available
+    /// in UTF-8. Symbols that don't exist in this character set are
+    /// substituted for the `?` symbol.
     #[doc(alias("chat", "say", "send"))]
     pub async fn post(&mut self, text: &str) -> Result<(), WorldError> {
         let messages = text
             .split('\n')
             .map(ChatString::from_str_lossy)
             .collect::<Vec<_>>();
+        let mut conn = self.connection().await;
         for message in messages {
-            self.connection.send(ChatPost { message }).await?;
+            conn.send(ChatPost { message }).await?;
         }
         Ok(())
     }
 
-    /// Post a single message to the in-game chat as the user.
+    /// Post a single message to the in-game chat as the user, without extra
+    /// processing.
     pub async fn post_message(&mut self, message: ChatString<'_>) -> Result<(), WorldError> {
-        self.connection.send(ChatPost { message }).await?;
+        self.send_command(ChatPost { message }).await?;
         Ok(())
     }
 
     /// Gets the type of the block at the given coordinates.
     pub async fn get_tile(&self, coords: Point3<i16>) -> Result<Tile> {
-        let ty = self.connection.send(WorldGetBlock { coords }).await?;
-        Ok(Tile(ty.parse()?))
+        let tile = self.send_command(WorldGetBlock { coords }).await?;
+        Ok(tile.parse()?)
     }
 
-    /// Gets the types and location offsets relative to `coords_0` of the blocks inclusively contained in the given cuboid.
+    /// Gets the types and location offsets relative to `coords_0` of the blocks
+    /// inclusively contained in the given cuboid.
     ///
     /// Raspberry Juice server only!
     pub async fn get_tiles(
@@ -105,8 +147,7 @@ impl<T: Protocol + Clone> World<T> {
         coords_2: Point3<i16>,
     ) -> Result<Vec<(Tile, Point3<i16>)>> {
         let blocks = self
-            .connection
-            .send(raspberry_juice::WorldGetBlocks { coords_1, coords_2 })
+            .send_command(raspberry_juice::WorldGetBlocks { coords_1, coords_2 })
             .await?;
 
         // Order: by z, then x, then y.
@@ -117,64 +158,66 @@ impl<T: Protocol + Clone> World<T> {
             .split(',')
             .enumerate()
             .map(|(idx, ty)| {
-                let tile = Tile(ty.parse()?);
+                let tile = Tile::from_str(ty)?;
                 let idx = idx as i16;
                 let z = idx / (x_len * y_len);
                 let x = (idx / y_len) % x_len;
                 let y = idx % y_len;
 
-                Ok::<_, WorldError>((tile, Point3::new(x, y, z)))
+                Ok((tile, Point3::new(x, y, z)))
             })
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<Result<Vec<_>, WorldError>>()?;
 
         Ok(blocks)
     }
 
     /// Gets the type and metadata of the block at the given coordinates.
     pub async fn get_block(&self, coords: Point3<i16>) -> Result<Block> {
-        self.connection
-            .send(WorldGetBlockWithData { coords })
+        Ok(self
+            .send_command(WorldGetBlockWithData { coords })
             .await?
-            .parse()
+            .parse()?)
     }
 
     /// Sets the block at the given coordinates to the specified type.
     ///
-    /// This method is shorthand for [`Self::set_block`] with `Block::new(tile, None)`.
+    /// This method is shorthand for [`Self::set_block`] with `Block::new(tile,
+    /// None)`.
     pub async fn set_tile(&mut self, coords: Point3<i16>, tile: Tile) -> Result<()> {
-        self.connection
-            .send(WorldSetBlock {
-                coords,
-                tile,
-                data: TileData::default(),
-                json_nbt: None,
-            })
-            .await?;
+        self.send_command(WorldSetBlock {
+            coords,
+            tile,
+            data: TileData::default(),
+            json_nbt: None,
+        })
+        .await?;
         Ok(())
     }
 
-    /// Sets the blocks inclusively contained in the given cuboid to the specified type.
+    /// Sets the blocks inclusively contained in the given cuboid to the
+    /// specified type.
     ///
-    /// This method is shorthand for [`Self::set_blocks`] with `Block::new(tile, None)`.
+    /// This method is shorthand for [`Self::set_blocks`] with `Block::new(tile,
+    /// None)`.
     pub async fn set_tiles(
         &mut self,
         coords_1: Point3<i16>,
         coords_2: Point3<i16>,
         tile: Tile,
     ) -> Result<()> {
-        self.connection
-            .send(WorldSetBlocks {
-                coords_1,
-                coords_2,
-                tile,
-                data: TileData::default(),
-                json_nbt: None,
-            })
-            .await?;
+        self.send_command(WorldSetBlocks {
+            coords_1,
+            coords_2,
+            tile,
+            data: TileData::default(),
+            json_nbt: None,
+        })
+        .await?;
         Ok(())
     }
 
-    /// Updates the blocks inclusively contained in the given cuboid to have the specified type and metadata.
+    /// Updates the blocks inclusively contained in the given cuboid to have the
+    /// specified type and metadata.
     pub async fn set_blocks(
         &mut self,
         coords_1: Point3<i16>,
@@ -182,80 +225,82 @@ impl<T: Protocol + Clone> World<T> {
         block: &Block,
     ) -> Result<()> {
         let nbt = block.json_nbt();
-        self.connection
-            .send(WorldSetBlocks {
-                coords_1,
-                coords_2,
-                tile: block.tile,
-                data: block.data,
-                json_nbt: nbt.as_deref().map(ApiStr::new).transpose()?,
-            })
-            .await?;
+        self.send_command(WorldSetBlocks {
+            coords_1,
+            coords_2,
+            tile: block.tile,
+            data: block.data,
+            json_nbt: nbt.as_deref().map(ApiStr::new).transpose()?,
+        })
+        .await?;
         Ok(())
     }
 
-    /// Updates the block at the given coordinates to have the specified type and metadata.
+    /// Updates the block at the given coordinates to have the specified type
+    /// and metadata.
     pub async fn set_block(&mut self, coords: Point3<i16>, block: &Block) -> Result<()> {
         let nbt = block.json_nbt();
-        self.connection
-            .send(WorldSetBlock {
-                coords,
-                tile: block.tile,
-                data: block.data,
-                json_nbt: nbt.as_deref().map(ApiStr::new).transpose()?,
-            })
-            .await?;
+        self.send_command(WorldSetBlock {
+            coords,
+            tile: block.tile,
+            data: block.data,
+            json_nbt: nbt.as_deref().map(ApiStr::new).transpose()?,
+        })
+        .await?;
         Ok(())
     }
 
-    /// Finds the Y-coordinate of the highest non-air block at the given X and Z coordinates.
+    /// Finds the Y-coordinate of the highest non-air block at the given X and Z
+    /// coordinates.
     pub async fn get_height_at(&self, coords: Point2<i16>) -> Result<i16> {
-        let y = self.connection.send(WorldGetHeight { coords }).await?;
+        let y = self.send_command(WorldGetHeight { coords }).await?;
         Ok(y.parse()?)
     }
 
-    /// Returns the player entity controlled by the connected game instance (i.e. the host player).
+    /// Returns the player entity controlled by the connected game instance
+    /// (i.e. the host player).
     pub fn me(&self) -> ClientPlayer<T> {
-        ClientPlayer::new(self.connection.clone())
+        ClientPlayer::new(self.clone())
     }
 
     pub async fn save_checkpoint(&mut self) -> Result<()> {
-        self.connection.send(WorldCheckpointSave {}).await?;
+        self.send_command(WorldCheckpointSave {}).await?;
         Ok(())
     }
 
     pub async fn restore_checkpoint(&mut self) -> Result<()> {
-        self.connection.send(WorldCheckpointRestore {}).await?;
+        self.send_command(WorldCheckpointRestore {}).await?;
         Ok(())
     }
 
     /// Returns all players currently in the world.
     pub async fn all_players(&self) -> Result<Vec<Player<T>>> {
-        let ids = self.connection.send(WorldGetPlayerIds {}).await?;
+        let ids = self.send_command(WorldGetPlayerIds {}).await?;
         let players = ids
             .split('|')
             .map(|id| {
                 let id = EntityId(id.parse()?);
-                Ok::<_, WorldError>(Player::new(self.connection.clone(), id))
+                Ok::<_, WorldError>(Player::new(self.clone(), id))
             })
             .collect::<Result<Vec<_>, _>>()?;
         Ok(players)
     }
 
-    /// Enables or disables a setting that controls the behavior or the game world.
+    /// Enables or disables a setting that controls the behavior or the game
+    /// world.
     pub async fn set(&mut self, setting: WorldSettingKey<'_>, enabled: bool) -> Result<()> {
-        self.connection
-            .send(WorldSetting {
-                key: setting,
-                value: enabled,
-            })
-            .await?;
+        self.send_command(WorldSetting {
+            key: setting,
+            value: enabled,
+        })
+        .await?;
         Ok(())
     }
 
     /// Enables or disables world immutability.
     ///
-    /// When enabled, players cannot edit the world (such as by placing or destroying blocks).
+    /// When enabled, players cannot edit the world (such as by placing or
+    /// destroying blocks).
     pub async fn set_immutable(&mut self, enabled: bool) -> Result {
         self.set(WorldSettingKey::WORLD_IMMUTABLE, enabled).await
     }
@@ -269,30 +314,31 @@ impl<T: Protocol + Clone> World<T> {
 
     /// Clears any pending events that have yet to be received.
     pub async fn clear_events(&mut self) -> Result<()> {
-        self.connection.send(EventsClear {}).await?;
+        self.send_command(EventsClear {}).await?;
         Ok(())
     }
 
-    /// Polls for any block hits that have occurred since the last call to this method.
+    /// Polls for any block hits that have occurred since the last call to this
+    /// method.
     pub async fn poll_block_hits(&self) -> Result<Vec<BlockHit>> {
-        let hits = self.connection.send(EventsBlockHits {}).await?;
+        let hits = self.send_command(EventsBlockHits {}).await?;
         hits.split('|')
             .map(|hit| {
-                let mut hit = hit.split(',').map(i16::from_str);
+                let [x, y, z, face, player_id] = hit
+                    .split(',')
+                    .collect_array()
+                    .context(NotEnoughPartsSnafu)?;
                 Ok::<_, WorldError>(BlockHit {
-                    coords: Point3::new(
-                        hit.next().context(NotEnoughPartsSnafu)??,
-                        hit.next().context(NotEnoughPartsSnafu)??,
-                        hit.next().context(NotEnoughPartsSnafu)??,
-                    ),
-                    face: hit.next().context(NotEnoughPartsSnafu)??.try_into()?,
-                    player_id: EntityId(hit.next().context(NotEnoughPartsSnafu)??.into()),
+                    location: Point3::new(x.parse()?, y.parse()?, z.parse()?),
+                    face: face.parse::<u8>()?.try_into()?,
+                    player_id: player_id.parse()?,
                 })
             })
             .collect()
     }
 
-    /// Creates a stream of block hit events. If the connection's event queue is full, polls will not be sent.
+    /// Creates a stream of block hit events. If the connection's event queue is
+    /// full, polls will not be sent.
     ///
     /// # Arguments
     ///
@@ -323,27 +369,28 @@ impl<T: Protocol + Clone> World<T> {
     }
 
     /// Disconnection from the world after ensuring all pending events are sent.
-    pub async fn disconnect(self) -> Result<()> {
-        self.connection.close().await?;
+    pub async fn disconnect(&mut self) -> Result<()> {
+        self.connection().await.close().await?;
         Ok(())
     }
 }
 
 /// Represents a block hit event.
 ///
-/// Block hits are usually triggered when a player right clicks a block with a sword.
-/// This may differ depending on your server implementation.
+/// Block hits are usually triggered when a player right clicks a block with a
+/// sword. This may differ depending on the server implementation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct BlockHit {
     /// The coordinates of the block that was hit.
-    pub coords: Point3<i16>,
+    pub location: Point3<i16>,
     /// The face of the block that was hit.
     pub face: BlockFace,
     /// The ID of the player that hit the block.
     pub player_id: EntityId,
 }
 
-/// Converts the floating-point position coordinates of an entity to integer tile coordinates.
+/// Converts the floating-point position coordinates of an entity to integer
+/// tile coordinates.
 ///
 /// # Example
 ///

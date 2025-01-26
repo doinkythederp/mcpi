@@ -1,9 +1,10 @@
+use std::num::ParseIntError;
 use std::str::FromStr;
 
 use snafu::{OptionExt, Snafu};
 
 use crate::connection::{Tile, TileData};
-use crate::{Result, WorldError};
+use crate::Result;
 
 /// A block type and its associated data.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -35,26 +36,27 @@ impl Block {
 #[derive(Debug, Snafu)]
 pub enum ParseBlockError {
     NotEnoughParts,
-    ParseInt,
+    #[snafu(context(false))]
+    ParseInt {
+        source: ParseIntError,
+    },
 }
 
 impl FromStr for Block {
-    type Err = WorldError;
+    type Err = ParseBlockError;
 
-    fn from_str(s: &str) -> Result<Self> {
-        let mut parts = s.splitn(2, ',');
-        let tile = parts.next().context(NotEnoughPartsSnafu)?.parse()?;
-        let data = parts.next().context(NotEnoughPartsSnafu)?.parse()?;
+    fn from_str(s: &str) -> Result<Self, ParseBlockError> {
+        let (tile, data) = s.split_once(',').context(NotEnoughPartsSnafu)?;
 
         Ok(Self {
-            tile: Tile(tile),
-            data: TileData(data),
+            tile: tile.parse()?,
+            data: data.parse()?,
             nbt: None,
         })
     }
 }
 
-/// Failed to convert a block face ID to a `BlockFace`.
+/// Failed to convert a block face ID to a [`BlockFace`].
 #[derive(Debug, Snafu)]
 #[snafu(display("Invalid block face `{id}`"))]
 pub struct InvalidBlockFaceError {
@@ -65,11 +67,12 @@ pub struct InvalidBlockFaceError {
 #[repr(i16)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum BlockFace {
-    /// The side of the block facing towards Y = -∞ (i.e. the bottom of the block).
+    /// The side of the block facing towards Y = -∞ (i.e. the bottom of the
+    /// block).
     NegativeY = 0,
     /// The side of the block facing towards Y = ∞ (i.e. the top of the block).
     PositiveY,
-    /// The side of the block facing towards z = -∞.
+    /// The side of the block facing towards Z = -∞.
     NegativeZ,
     /// The side of the block facing towards Z = ∞.
     PositiveZ,
@@ -79,10 +82,10 @@ pub enum BlockFace {
     PositiveX,
 }
 
-impl TryFrom<i16> for BlockFace {
+impl TryFrom<u8> for BlockFace {
     type Error = InvalidBlockFaceError;
 
-    fn try_from(id: i16) -> Result<Self, InvalidBlockFaceError> {
+    fn try_from(id: u8) -> Result<Self, InvalidBlockFaceError> {
         Ok(match id {
             0 => Self::NegativeY,
             1 => Self::PositiveY,

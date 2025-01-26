@@ -1,13 +1,15 @@
-//! Commands can be sent to the game server to perform an action or query information.
+//! Commands can be sent to the game server to perform an action or query
+//! information.
 //!
-//! Includes all commands supported by the vanilla Minecraft: Pi Edition game, as well as
-//! commands from the following plugins, mods, or API extensions:
+//! Includes all commands supported by the vanilla Minecraft: Pi Edition game,
+//! as well as commands from the following plugins, mods, or API extensions:
 //!
 //! - [Raspberry Juice](https://dev.bukkit.org/projects/raspberryjuice) plugin
 //! - [MCPI Addons](https://github.com/Bigjango13/MCPI-Addons) mod
 //! - [Raspberry Jam](https://github.com/arpruss/raspberryjammod)
 //!
-//! Each command struct is generally named after the API method it corresponds to.
+//! Each command struct is generally named after the API method it corresponds
+//! to.
 
 use std::fmt::{self, Display, Formatter};
 use std::io::Write;
@@ -20,12 +22,14 @@ pub mod mcpi_addons;
 pub mod raspberry_jam;
 pub mod raspberry_juice;
 
-/// Values implementing this trait are commands that can be serialized and sent to the Minecraft
-/// game server.
-pub trait SerializableCommand {
-    /// Whether the specified command should wait for a response from the game server.
+/// Values implementing this trait are commands that can be serialized and sent
+/// to the Minecraft game server.
+pub trait SerializableCommand: Send {
+    /// Whether the specified command should wait for a response from the game
+    /// server.
     const HAS_RESPONSE: bool;
-    // Serializes the specified command into bytes that can be sent to the game server.
+    // Serializes the specified command into bytes that can be sent to the game
+    // server.
     #[must_use]
     fn to_command_bytes(&self) -> Vec<u8>;
 }

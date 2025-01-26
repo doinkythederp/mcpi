@@ -16,11 +16,11 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut block_stream = pin!(world.block_hits(Duration::from_millis(5)));
     while let Some(hit) = block_stream.try_next().await? {
-        let block = world.get_block(hit.coords).await?;
+        let block = world.get_block(hit.location).await?;
         println!(
             "{} block hit at {} (face: {:?}, player #{})",
             block.tile.display(),
-            hit.coords,
+            hit.location,
             hit.face,
             hit.player_id
         );
