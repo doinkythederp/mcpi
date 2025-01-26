@@ -1,5 +1,5 @@
 #![deny(unsafe_op_in_unsafe_fn)]
-#![warn(rust_2018_idioms, /* missing_docs, */ clippy::missing_const_for_fn)]
+#![warn(rust_2018_idioms, /* missing_docs, */ clippy::missing_const_for_fn, rust_2024_compatibility)]
 
 use std::num::{ParseFloatError, ParseIntError};
 use std::str::FromStr;

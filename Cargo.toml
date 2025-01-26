@@ -7,15 +7,27 @@ authors = ["doinkythederp <doinkythederp@icloud.com>"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-async-stream = "0.3.5"
-bytes = "1.6.0"
-derive_more = { version = "1.0.0", features = ["display", "as_ref", "constructor", "from", "from_str"] }
-futures-core = "0.3.30"
-itertools = { version = "0.14.0", default-features = false }
-nalgebra = "0.32.5"
-serde_json = "1.0.117"
-snafu = "0.8.2"
-tokio = { version = "1.37.0", features = ["net", "sync", "io-util", "macros"] }
+async-stream = "0.3"
+bytes = "1.6"
+derive_more = { version = "1", features = [
+    "display",
+    "as_ref",
+    "constructor",
+    "from",
+    "from_str",
+] }
+futures-core = "0.3"
+itertools = { version = "0.14", default-features = false }
+nalgebra = "0.32"
+serde_json = "1"
+snafu = "0.8"
+tokio = { version = "1.37", features = [
+    "net",
+    "sync",
+    "time",
+    "io-util",
+    "macros",
+] }
 
 [dev-dependencies]
 chrono = "0.4.38"

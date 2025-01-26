@@ -254,6 +254,9 @@ impl Display for TileDisplay {
 pub struct TileData(pub u8);
 
 impl TileData {
+    // Used with blocks that do not have tile data
+    pub const NONE: Self = Self(0);
+
     // LOG, LEAVES, SAPLING
     pub const OAK: Self = Self(0);
     pub const SPRUCE: Self = Self(1);

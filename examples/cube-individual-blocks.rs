@@ -2,9 +2,13 @@
 //!
 //! All in all, 15,625 commands will be sent to the server. (25^3)
 
-use mcpi::connection::commands::WorldSetBlock;
-use mcpi::connection::{ConnectOptions, Protocol, ServerConnection, Tile, TileData};
-use nalgebra::Point3;
+use mcpi::connection::Tile;
+use mcpi::{Block, World};
+use nalgebra::{Point3, Vector3};
+
+const BLOCK: Block = Block::from_tile(Tile::SANDSTONE);
+const CUBE_ORIGIN: Point3<i16> = Point3::new(0, 25, 0);
+const CUBE_SIZE: Vector3<i16> = Vector3::new(25, 25, 25);
 
 #[tokio::main]
 pub async fn main() {
@@ -14,25 +18,17 @@ pub async fn main() {
         None => "raspberrypi.local:4711",
     };
 
-    let mut connection = ServerConnection::new(addr, ConnectOptions::default())
-        .await
-        .unwrap();
-    let coords_1 = Point3::new(0, 25, 0);
-    let coords_2 = coords_1.map(|x| x + 25);
+    let coords_1 = CUBE_ORIGIN;
+    let coords_2 = CUBE_ORIGIN + CUBE_SIZE;
+
+    let mut world = World::connect(addr).await.unwrap();
 
     for x in coords_1.x..coords_2.x {
         for y in coords_1.y..coords_2.y {
             for z in coords_1.z..coords_2.z {
-                println!("Setting block at {:?}", Point3::new(x, y, z));
-                connection
-                    .send(WorldSetBlock {
-                        tile: Tile::SANDSTONE,
-                        coords: Point3::new(x, y, z),
-                        data: TileData::default(),
-                        json_nbt: None,
-                    })
-                    .await
-                    .unwrap();
+                let coords = Point3::new(x, y, z);
+                println!("Setting block at {coords:?}");
+                world.set_block(coords, &BLOCK).await.unwrap();
             }
         }
     }

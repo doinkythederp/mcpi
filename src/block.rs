@@ -23,6 +23,10 @@ impl Block {
         }
     }
 
+    pub const fn from_tile(tile: Tile) -> Self {
+        Self::new(tile, TileData::NONE)
+    }
+
     pub fn with_nbt(mut self, nbt: serde_json::Value) -> Self {
         self.nbt = Some(nbt);
         self
@@ -53,6 +57,12 @@ impl FromStr for Block {
             data: data.parse()?,
             nbt: None,
         })
+    }
+}
+
+impl From<Tile> for Block {
+    fn from(value: Tile) -> Self {
+        Self::new(value, TileData::default())
     }
 }
 
